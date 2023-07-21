@@ -22,7 +22,7 @@ using namespace net::tcp;
 int main() {
     auto connectFd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (connectFd < 0) {
-        LOG_ERR("%s: failed to create socket.", __FUNCTION__);
+        LOG_ERR("{}: failed to create socket.", __FUNCTION__);
         return 0;
     }
 
@@ -30,15 +30,15 @@ int main() {
     serverAddr.sin_port = ::htons(8848);
     serverAddr.sin_family = AF_INET;
     if (auto res = ::inet_pton(AF_INET, "127.0.0.0", &serverAddr.sin_addr); res <= 0) {
-        LOG_ERR("%s: error addr, code(%d) message(%d)", __FUNCTION__, errno, strerror(errno));
+        LOG_ERR("{}: error addr, code({}) message({})", __FUNCTION__, errno, strerror(errno));
         return 0;
     }
 
     if (auto res = ::connect(connectFd, (sockaddr*)&serverAddr, sizeof(serverAddr)); res != 0) {
-        LOG_ERR("%s: connect failed, code(%d) message(%d)", __FUNCTION__, errno, strerror(errno));
+        LOG_ERR("{}: connect failed, code({}) message({})", __FUNCTION__, errno, strerror(errno));
         return 0;
     }
-    LOG_ERR("%s: connect Success!", __FUNCTION__);
+    LOG_ERR("{}: connect Success!", __FUNCTION__);
     constexpr std::string_view message = "hello world";
     while (true) {
         ::write(connectFd, message.data(), message.size());
@@ -88,7 +88,7 @@ int main() try {
 
     loop.startLoop();
 } catch (std::exception &e) {
-    LOG_ERR("%s: %s", __FUNCTION__, e.what());
+    LOG_ERR("{}: {}", __FUNCTION__, e.what());
     throw;
 }
 #endif

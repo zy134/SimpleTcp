@@ -31,15 +31,15 @@ EventLoop loop;
 
 static void onConnection(const TcpConnectionPtr& conn) {
     if (conn->isConnected()) {
-        LOG_INFO("%s: connected!", __FUNCTION__);
+        LOG_INFO("{}: connected!", __FUNCTION__);
     } else {
-        LOG_INFO("%s: disconnected!", __FUNCTION__);
+        LOG_INFO("{}: disconnected!", __FUNCTION__);
     }
 }
 
 static void onMessage(const TcpConnectionPtr& conn, TcpBuffer& buffer) {
     auto message = buffer.extract(buffer.size());
-    LOG_INFO("%s: read from client [%s]", __FUNCTION__, message.c_str());
+    LOG_INFO("{}: read from client [{}]", __FUNCTION__, message);
     std::cout << "read from client:" << message << std::endl;
 }
 
@@ -52,6 +52,6 @@ int main() try {
     LOG_INFO("start server");
     loop.startLoop();
 } catch (std::exception &e) {
-    LOG_ERR("%s: %s", __FUNCTION__, e.what());
+    LOG_ERR("{}: {}", __FUNCTION__, e.what());
     throw;
 }

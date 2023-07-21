@@ -44,15 +44,15 @@ DEBUG_FLAGS := -O0 -g -fno-omit-frame-pointer -rdynamic -DDEBUG_BUILD=1 -DDEFAUL
 RELEASE_FLAGS := -O2 -DRELEASE_BUILD=1 -DDEFAULT_LOG_LEVEL=2
 
 # default, build debug version.
-# ifeq ($(RELEASE_BUILD),true)
-#     CPPFLAGS += $(RELEASE_FLAGS)
-#     BUILD_VER := Release version
-# else
-CPPFLAGS += $(DEBUG_FLAGS)
-BUILD_VER := Debug version
-# endif
+ifeq ($(RELEASE_BUILD),true)
+    CPPFLAGS += $(RELEASE_FLAGS)
+    BUILD_VER := Release version
+else
+    CPPFLAGS += $(DEBUG_FLAGS)
+    BUILD_VER := Debug version
+endif
 
-LINKFLAGS += $(TCP_MODULE) $(NET_MODULE) $(BASE_MODULE)
+LINKFLAGS += $(TCP_MODULE) $(NET_MODULE) $(BASE_MODULE) -lfmt
 
 # ==============================================================================
 # Set make targets.

@@ -405,7 +405,7 @@ void assertTrue(bool cond, std::string_view msg) {
 //#ifdef DEBUG_BUILD
 if (!cond) {
     printBacktrace();
-    LOG_FATAL("[ASSERT] assert error: %s\n", msg.data());
+    LOG_FATAL("[ASSERT] assert error: {}\n", msg);
 }
 //#endif
 }
@@ -415,7 +415,7 @@ void printBacktrace() {
     LOG_WARN("================================================================================");
     LOG_WARN("============================== Start print backtrace ===========================");
     for (size_t i = 1; i < backtraces.size(); ++i) {
-        LOG_WARN(backtraces[i].c_str());
+        LOG_WARN(backtraces[i]);
     }
     LOG_WARN("=============================== End print backtrace  ===========================");
     // Use LOG_ERR to flush current buffer to log file in last log line.

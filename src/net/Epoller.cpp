@@ -5,6 +5,7 @@
 #include "net/Epoller.h"
 #include <array>
 #include <cerrno>
+#include <cstdint>
 #include <netdb.h>
 #include <vector>
 
@@ -15,9 +16,6 @@ extern "C" {
 #include <unistd.h>
 }
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "Epoller";
 
 // static check
@@ -47,12 +45,12 @@ std::string static transEventToStr(int event) {
 }
 
 Epoller::~Epoller() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     ::close(getFd());
 }
 
 EpollerPtr Epoller::createEpoller() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     auto epollFd = ::epoll_create(EPOLL_MAX_WAIT_NUM);
     if (epollFd < 0) {
         throw SystemException("createEpoller failed.");
@@ -66,8 +64,7 @@ bool Epoller::hasChannel(Channel * channel) const noexcept {
 
 void Epoller::addChannel(Channel *channel) {
     assertTrue(!hasChannel(channel), "addChannel: channel has existed.");
-    LOG_INFO("%s: fd %d, event %s", __FUNCTION__, channel->getFd()
-            , transEventToStr(channel->getEvent()).c_str());
+    LOG_INFO("{}: fd {}, event {}", __FUNCTION__, channel->getFd(), transEventToStr(channel->getEvent()));
     epoll_event event {};
     event.data.fd = channel->getFd();
     auto res = ::epoll_ctl(getFd(), EPOLL_CTL_ADD, channel->getFd(), &event);
@@ -80,8 +77,7 @@ void Epoller::addChannel(Channel *channel) {
 
 void Epoller::updateChannel(Channel *channel) {
     assertTrue(hasChannel(channel), "updateChannel: channel has not existed.");
-    LOG_INFO("%s: fd %d, event %s", __FUNCTION__, channel->getFd()
-            , transEventToStr(channel->getEvent()).c_str());
+    LOG_INFO("{}: fd {}, event {}", __FUNCTION__, channel->getFd(), transEventToStr(channel->getEvent()));
     epoll_event event {};
     event.data.fd = channel->getFd();
     event.events = channel->getEvent();
@@ -93,8 +89,7 @@ void Epoller::updateChannel(Channel *channel) {
 
 void Epoller::removeChannel(Channel *channel) {
     assertTrue(hasChannel(channel), "removeChannel: channel has not exist.");
-    LOG_INFO("%s: fd %d, event %s", __FUNCTION__, channel->getFd()
-            , transEventToStr(channel->getEvent()).c_str());
+    LOG_INFO("{}: fd {}, event {}", __FUNCTION__, channel->getFd(), transEventToStr(channel->getEvent()));
     epoll_event event {};
     event.data.fd = channel->getFd();
     auto res = ::epoll_ctl(getFd(), EPOLL_CTL_DEL, channel->getFd(), &event);
@@ -106,7 +101,7 @@ void Epoller::removeChannel(Channel *channel) {
 }
 
 auto Epoller::poll() -> std::vector<Channel *> {
-    LOG_INFO("%s: +", __FUNCTION__);
+    LOG_INFO("{}: +", __FUNCTION__);
     std::vector<Channel *> result;
 
     std::array<epoll_event, EPOLL_MAX_WAIT_NUM> rEventArray;
@@ -119,10 +114,11 @@ auto Epoller::poll() -> std::vector<Channel *> {
         assertTrue(mChannelMap.count(rEventArray[i].data.fd) != 0, "poll : fd not existed.");
         auto* channel = mChannelMap[rEventArray[i].data.fd];
         channel->setRevents(rEventArray[i].events);
-        LOG_INFO("%s: fd %d, result event %d", __FUNCTION__, channel->getFd(), rEventArray[i].events);
+        LOG_INFO("{}: fd {}, result event {}"
+                , __FUNCTION__, channel->getFd(), static_cast<uint32_t>(rEventArray[i].events));
         result.push_back(channel);
     }
-    LOG_INFO("%s: -", __FUNCTION__);
+    LOG_INFO("{}: -", __FUNCTION__);
     return result;
 }
 

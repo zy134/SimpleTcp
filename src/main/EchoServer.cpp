@@ -30,9 +30,9 @@ EventLoop loop;
 
 static void onConnection(const TcpConnectionPtr& conn) {
     if (conn->isConnected()) {
-        LOG_INFO("%s: connected!", __FUNCTION__);
+        LOG_INFO("{}: connected!", __FUNCTION__);
     } else {
-        LOG_INFO("%s: disconnected!", __FUNCTION__);
+        LOG_INFO("{}: disconnected!", __FUNCTION__);
     }
 }
 
@@ -51,6 +51,6 @@ int main() try {
     LOG_INFO("start server");
     loop.startLoop();
 } catch (std::exception &e) {
-    LOG_ERR("%s: %s", __FUNCTION__, e.what());
+    LOG_ERR("{}: {}", __FUNCTION__, e.what());
     throw;
 }

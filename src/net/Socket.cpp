@@ -26,15 +26,12 @@ extern "C" {
 
 using namespace utils;
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "Socket";
 
 namespace net {
 
 Socket::~Socket() {
-    LOG_INFO("%s ", __FUNCTION__);
+    LOG_INFO("{} ", __FUNCTION__);
     ::close(getFd());
 }
 
@@ -46,7 +43,7 @@ inline static int createNonblockingSocket(IP_PROTOCOL protocol) {
     if (socketFd < 0) {
         throw SystemException("failed to create socket.");
     }
-    LOG_INFO("%s: success create new fd %d", __FUNCTION__, socketFd);
+    LOG_INFO("{}: success create new fd {}", __FUNCTION__, socketFd);
     return socketFd;
 }
 
@@ -86,42 +83,42 @@ SocketResult Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
     };
 
     if (serverSocketAddr.mIpProtocol == IP_PROTOCOL::IPv4) {
-        LOG_DEBUG("%s: IPv4", __FUNCTION__);
+        LOG_DEBUG("{}: IPv4", __FUNCTION__);
         sockaddr_in serverAddr = {};
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons(serverSocketAddr.mPort);
         // inet_pton return 1 indicate success.
         if (auto res = ::inet_pton(AF_INET, serverSocketAddr.mIpAddr.data(), &serverAddr.sin_addr); res != 1) {
-            LOG_ERR("%s: error IP addr %s, res %d", __FUNCTION__, serverSocketAddr.mIpAddr.data(), res);
+            LOG_ERR("{}: error IP addr {}, res {}", __FUNCTION__, serverSocketAddr.mIpAddr.data(), res);
             return tl::unexpected(errno);
         }
         auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv4);
         if (auto res = ::connect(socketFd, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr))
                 ; res != 0 && failedResult(errno)) {
-            LOG_ERR("%s: connect failed, addr:%s port:%d", __FUNCTION__
+            LOG_ERR("{}: connect failed, addr:{} port:{}", __FUNCTION__
                     , serverSocketAddr.mIpAddr.data(), serverSocketAddr.mPort);
             return tl::unexpected(errno);
         } else if (res != 0) {
-            LOG_INFO("%s: connect not done for %s", __FUNCTION__, serverSocketAddr.mIpAddr.data());
+            LOG_INFO("{}: connect not done for {}", __FUNCTION__, serverSocketAddr.mIpAddr.data());
         }
         result.reset(new Socket(socketFd));
     } else {
-        LOG_DEBUG("%s: IPv6", __FUNCTION__);
+        LOG_DEBUG("{}: IPv6", __FUNCTION__);
         sockaddr_in6 serverAddr = {};
         serverAddr.sin6_family = AF_INET6;
         serverAddr.sin6_port = htons(serverSocketAddr.mPort);
         if (auto res = ::inet_pton(AF_INET6, serverSocketAddr.mIpAddr.data(), &serverAddr.sin6_addr); res != 1) {
-            LOG_ERR("%s: connect failed, addr:%s port:%d", __FUNCTION__
+            LOG_ERR("{}: connect failed, addr:{} port:{}", __FUNCTION__
                     , serverSocketAddr.mIpAddr.data(), serverSocketAddr.mPort);
             return tl::unexpected(errno);
         }
         auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv6);
         if (auto res = ::connect(socketFd, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr))
                 ; res != 0 && failedResult(errno)) {
-            LOG_ERR("%s: failed to connect %s", __FUNCTION__, serverSocketAddr.mIpAddr.data());
+            LOG_ERR("{}: failed to connect {}", __FUNCTION__, serverSocketAddr.mIpAddr.data());
             return tl::unexpected(errno);
         } else if (res != 0) {
-            LOG_INFO("%s: connect not done for %s", __FUNCTION__, serverSocketAddr.mIpAddr.data());
+            LOG_INFO("{}: connect not done for {}", __FUNCTION__, serverSocketAddr.mIpAddr.data());
         }
         result.reset(new Socket(socketFd));
     }
@@ -133,11 +130,11 @@ SocketResult Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
 SocketPtr Socket::createTcpListenSocket(SocketAddr&& serverSocketAddr, int maxListenQueue) {
     std::unique_ptr<Socket> result;
     if (serverSocketAddr.mIpProtocol == IP_PROTOCOL::IPv4) {
-        LOG_DEBUG("%s: IPv4", __FUNCTION__);
+        LOG_DEBUG("{}: IPv4", __FUNCTION__);
         auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv4);
         result.reset(new Socket(socketFd));
     } else {
-        LOG_DEBUG("%s: IPv6", __FUNCTION__);
+        LOG_DEBUG("{}: IPv6", __FUNCTION__);
         auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv6);
         result.reset(new Socket(socketFd));
     }
@@ -149,39 +146,39 @@ SocketPtr Socket::createTcpListenSocket(SocketAddr&& serverSocketAddr, int maxLi
 }
 
 void Socket::listen() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{}: start", __FUNCTION__);
     assertTrue(mIsListenSocket, "[Socket] listen just can be invoked by listen socket!");
     if (mLocalAddr.mIpProtocol == IP_PROTOCOL::IPv4) {
-        LOG_DEBUG("%s: IPv4", __FUNCTION__);
+        LOG_DEBUG("{}: IPv4", __FUNCTION__);
         sockaddr_in serverAddr = {};
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_addr.s_addr = INADDR_ANY;
         serverAddr.sin_port = ::htons(mLocalAddr.mPort);
         if (auto res = ::bind(getFd(), reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr)); res != 0) {
-            LOG_FATAL("%s: bind error because %s.", __FUNCTION__, strerror(errno));
+            LOG_FATAL("{}: bind error because {}.", __FUNCTION__, strerror(errno));
         }
         if (auto res = ::listen(getFd(), mMaxListenQueue); res != 0) {
-            LOG_FATAL("%s: listen error because %s.", __FUNCTION__, strerror(errno));
+            LOG_FATAL("{}: listen error because {}.", __FUNCTION__, strerror(errno));
         }
     } else {
-        LOG_DEBUG("%s: IPv6", __FUNCTION__);
+        LOG_DEBUG("{}: IPv6", __FUNCTION__);
         sockaddr_in6 serverAddr = {};
         serverAddr.sin6_family = AF_INET6;
         serverAddr.sin6_port = ::htons(mLocalAddr.mPort);
         serverAddr.sin6_addr = IN6ADDR_ANY_INIT;
         if (auto res = ::bind(getFd(), reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr)); res != 0) {
-            LOG_FATAL("%s: bind error because %s.", __FUNCTION__, strerror(errno));
+            LOG_FATAL("{}: bind error because {}.", __FUNCTION__, strerror(errno));
         }
         if (auto res = ::listen(getFd(), mMaxListenQueue); res != 0) {
-            LOG_FATAL("%s: listen error because %s.", __FUNCTION__, strerror(errno));
+            LOG_FATAL("{}: listen error because {}.", __FUNCTION__, strerror(errno));
         }
     }
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{}: end", __FUNCTION__);
     setLocalAddr(mLocalAddr.mIpProtocol);
 }
 
 SocketResult Socket::accept() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{}: start", __FUNCTION__);
     // Accept connection.
     assertTrue(mIsListenSocket, "[Socket] accept just can be invoked by listen socket!");
     std::variant<sockaddr_in, sockaddr_in6> clientAddr;
@@ -191,7 +188,7 @@ SocketResult Socket::accept() {
             , reinterpret_cast<sockaddr *>(&clientAddr), &addrLen
             , SOCK_CLOEXEC | SOCK_NONBLOCK);
     if (connectedFd < 0) {
-        LOG_ERR("%s: failed to accept, %s", __FUNCTION__, gai_strerror(errno));
+        LOG_ERR("{}: failed to accept, {}", __FUNCTION__, gai_strerror(errno));
         return tl::unexpected(errno);
     }
 
@@ -210,15 +207,15 @@ SocketResult Socket::accept() {
     result->setPeerAddr(std::move(peerAddr));
     result->setLocalAddr(getIpProtocol());
     // Return new connected socket..
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{}: end", __FUNCTION__);
     return result;
 }
 
 void Socket::shutdown() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     auto res = ::shutdown(getFd(), SHUT_WR);
     if (res != 0) {
-        LOG_ERR("%s: code(%d) message(%s)", __FUNCTION__, errno, strerror(errno));
+        LOG_ERR("{}: code({}) message({})", __FUNCTION__, errno, strerror(errno));
     }
 }
 
@@ -279,7 +276,7 @@ void Socket::setLocalAddr(IP_PROTOCOL protocol) {
             };
             mLocalAddr = std::move(localAddr);
         } else {
-            LOG_ERR("%s: failed to get local addr.", __FUNCTION__);
+            LOG_ERR("{}: failed to get local addr.", __FUNCTION__);
         }
     } else {
         sockaddr_in6 addr;
@@ -293,7 +290,7 @@ void Socket::setLocalAddr(IP_PROTOCOL protocol) {
             };
             mLocalAddr = std::move(localAddr);
         } else {
-            LOG_ERR("%s: failed to get local addr.", __FUNCTION__);
+            LOG_ERR("{}: failed to get local addr.", __FUNCTION__);
         }
     }
 }
@@ -312,17 +309,17 @@ void Socket::dumpSocketInfo() const noexcept {
     tcp_info tcpInfo {};
     socklen_t len = sizeof(tcpInfo);
     if (::getsockopt(getFd(), SOL_SOCKET, TCP_INFO, &tcpInfo, &len) == 0) {
-        LOG_DEBUG("%s: local addr %s, port %d", __FUNCTION__, mLocalAddr.mIpAddr.c_str(), mLocalAddr.mPort);
-        LOG_DEBUG("%s: peer  addr %s, port %d", __FUNCTION__, mPeerAddr.mIpAddr .c_str(), mPeerAddr.mPort);
-        LOG_DEBUG("%s: pmtu=%d, state=%d", __FUNCTION__, tcpInfo.tcpi_pmtu, tcpInfo.tcpi_state);
-        LOG_DEBUG("%s: rtt=%d, trrval=%d, rto=%d", __FUNCTION__
+        LOG_DEBUG("{}: local addr {}, port {}", __FUNCTION__, mLocalAddr.mIpAddr, mLocalAddr.mPort);
+        LOG_DEBUG("{}: peer  addr {}, port {}", __FUNCTION__, mPeerAddr.mIpAddr, mPeerAddr.mPort);
+        LOG_DEBUG("{}: pmtu={}, state={}", __FUNCTION__, tcpInfo.tcpi_pmtu, tcpInfo.tcpi_state);
+        LOG_DEBUG("{}: rtt={}, trrval={}, rto={}", __FUNCTION__
                 , tcpInfo.tcpi_rtt, tcpInfo.tcpi_rttvar, tcpInfo.tcpi_rto);
-        LOG_DEBUG("%s: send cwnd=%d, mss=%d, ssthresh=%d, wscale=%d", __FUNCTION__
-                , tcpInfo.tcpi_snd_cwnd, tcpInfo.tcpi_snd_mss, tcpInfo.tcpi_snd_ssthresh, tcpInfo.tcpi_snd_wscale);
-        LOG_DEBUG("%s: recv space=%d, mss=%d, ssthresh=%d, wscale=%d", __FUNCTION__
-                , tcpInfo.tcpi_rcv_space, tcpInfo.tcpi_rcv_mss, tcpInfo.tcpi_rcv_ssthresh, tcpInfo.tcpi_rcv_wscale);
+        LOG_DEBUG("{}: send cwnd={}, mss={}, ssthresh={}, wscale={}", __FUNCTION__
+                , tcpInfo.tcpi_snd_cwnd, tcpInfo.tcpi_snd_mss, tcpInfo.tcpi_snd_ssthresh, (int)tcpInfo.tcpi_snd_wscale);
+        LOG_DEBUG("{}: recv space={}, mss={}, ssthresh={}, wscale={}", __FUNCTION__
+                , tcpInfo.tcpi_rcv_space, tcpInfo.tcpi_rcv_mss, tcpInfo.tcpi_rcv_ssthresh, (int)tcpInfo.tcpi_rcv_wscale);
     } else {
-        LOG_WARN("%s: failed to get tcp info!");
+        LOG_WARN("{}: failed to get tcp info!");
     }
 }
 

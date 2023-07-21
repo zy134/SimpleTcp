@@ -3,6 +3,7 @@
 #include "base/Utils.h"
 #include "net/Channel.h"
 #include "net/Socket.h"
+#include "net/EventFd.h"
 #include "net/EventLoop.h"
 #include "tcp/TcpConnection.h"
 
@@ -17,7 +18,7 @@ public:
     DISABLE_MOVE(TcpServer);
 
     TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue);
-    ~TcpServer();
+    ~TcpServer() noexcept;
 
     /**
      * @brief start: Start listen for client.
@@ -49,7 +50,9 @@ private:
     net::EventLoop*     mpEventLoop;
     net::SocketPtr      mpListenSocket;
     net::ChannelPtr     mpListenChannel;
+
     std::unordered_set<net::tcp::TcpConnectionPtr> mConnectionSet;
+    static constexpr auto MAX_CONNECTION_NUMS = 256;
 
     TcpConnectionCallback       mConnectionCb;
     TcpMessageCallback          mMessageCb;

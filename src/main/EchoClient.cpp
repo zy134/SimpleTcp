@@ -64,7 +64,7 @@ int main() try {
         while (std::getline(std::cin, input)) {
             auto guard = clientConn;
             if (guard != nullptr) {
-                LOG_INFO("%s: input: %s", __FUNCTION__, input.c_str());
+                LOG_INFO("{}: input: {}", __FUNCTION__, input);
                 std::cout << "To server:[" << input << "]" << std::endl;
                 guard->send(input);
             }
@@ -73,6 +73,6 @@ int main() try {
 
     loop.startLoop();
 } catch (std::exception &e) {
-    LOG_ERR("%s: %s", __FUNCTION__, e.what());
+    LOG_ERR("{}: {}", __FUNCTION__, e.what());
     throw;
 }

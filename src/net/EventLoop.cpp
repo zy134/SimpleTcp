@@ -31,9 +31,6 @@ extern "C" {
 #include <netdb.h>
 }
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "EventLoop";
 
 using namespace utils;
@@ -52,14 +49,15 @@ namespace net {
 /************************************************************/
 /********************** EventLoop ***************************/
 /************************************************************/
-thread_local int EventLoop::tCurrentLoopTid = -1;
+
+static thread_local EventLoop* tCurrentLoop = nullptr;
 
 EventLoop::EventLoop() {
-    LOG_INFO("%s +", __FUNCTION__);
-    assertTrue(tCurrentLoopTid == -1, "Every thread can hold only one event loop!");
+    LOG_INFO("{}: start", __FUNCTION__);
+    assertTrue(tCurrentLoop == nullptr, "Every thread can hold only one event loop!");
+    tCurrentLoop = this;
 
-    tCurrentLoopTid = ::gettid();
-    LOG_INFO("%s: tCurrentLoopTid=%d, EventLoop=%p", __FUNCTION__, tCurrentLoopTid, this);
+    LOG_INFO("{}: current thread EventLoop: {}", __FUNCTION__, static_cast<void *>(this));
 
     try {
         mpPoller = Epoller::createEpoller();
@@ -70,12 +68,13 @@ EventLoop::EventLoop() {
         mpWakeupChannel = Channel::createChannel(mpWakeupFd->getFd(), this);
         mpWakeupChannel->setReadCallback([&] {
             LOG_INFO("handleRead");
-            mpWakeupFd->handleRead(); 
+            mpWakeupFd->handleRead();
         });
         mpWakeupChannel->enableRead();
     } catch (SystemException& e) {
-        LOG_ERR("%s", e.what());
+        LOG_ERR("{}", e.what());
         printBacktrace();
+        tCurrentLoop = nullptr;
         throw;
     }
 
@@ -83,29 +82,32 @@ EventLoop::EventLoop() {
     mIsExit = true;
     mIsLoopingNow = false;
     mIsDoPendingWorks = false;
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{}: end", __FUNCTION__);
 }
 
 EventLoop::~EventLoop() {
     assertInLoopThread();
     // Restore thread state.
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{}: start", __FUNCTION__);
+    LOG_INFO("{}: current thread EventLoop: {}", __FUNCTION__, static_cast<void *>(this));
     mpWakeupChannel = nullptr;
     mpWakeupFd = nullptr;
     mpTimerQueue = nullptr;
     mpPoller = nullptr;
-    tCurrentLoopTid = -1;
-    LOG_INFO("%s -", __FUNCTION__);
+    tCurrentLoop = nullptr;
+    LOG_INFO("{}: end", __FUNCTION__);
 }
 
 void EventLoop::addChannel(Channel *channel) {
-    LOG_INFO("%s: channel %p, fd %d", __FUNCTION__, channel, channel->getFd());
+    LOG_INFO("{}: channel {}, fd {}"
+            , __FUNCTION__, static_cast<void *>(channel), channel->getFd());
     assertInLoopThread();
     mpPoller->addChannel(channel);
 }
 
 void EventLoop::removeChannel(Channel *channel) {
-    LOG_INFO("%s: channel %p, fd %d", __FUNCTION__, channel, channel->getFd());
+    LOG_INFO("{}: channel {}, fd {}"
+            , __FUNCTION__, static_cast<void *>(channel), channel->getFd());
     assertInLoopThread();
     if (mIsLoopingNow) {
         assertTrue(mpCurrentChannel == channel, "Channel can only remove by itself!");
@@ -114,13 +116,14 @@ void EventLoop::removeChannel(Channel *channel) {
 }
 
 void EventLoop::updateChannel(Channel *channel) {
-    LOG_INFO("%s: channel %p, fd %d", __FUNCTION__, channel, channel->getFd());
+    LOG_INFO("{}: channel {}, fd {}"
+            , __FUNCTION__, static_cast<void *>(channel), channel->getFd());
     assertInLoopThread();
     mpPoller->updateChannel(channel);
 }
 
 void EventLoop::startLoop() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} start", __FUNCTION__);
     assertInLoopThread();
     mIsExit = false;
     [[likely]]
@@ -129,25 +132,28 @@ void EventLoop::startLoop() {
         auto activeChannels = mpPoller->poll();
         [[unlikely]]
         if (activeChannels.size() == 0) {
-            LOG_DEBUG("%s: wait timeout", __FUNCTION__);
+            LOG_DEBUG("{}: wait timeout", __FUNCTION__);
             mIsLoopingNow = false;
         }
         for (auto* channel : activeChannels) {
             mpCurrentChannel = channel;
-            LOG_DEBUG("%s: current channel %p. fd %d", __FUNCTION__, mpCurrentChannel, mpCurrentChannel->getFd());
+            LOG_DEBUG("{}: current channel {}. fd {}"
+                    , __FUNCTION__, static_cast<void *>(mpCurrentChannel), mpCurrentChannel->getFd());
             channel->handleEvent();
             mpCurrentChannel = nullptr;
         }
         mIsLoopingNow = false;
+        // Do pending tasks after loop.
         doPendingTasks();
     }
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} end", __FUNCTION__);
 }
 
 void EventLoop::quitLoop() {
-    LOG_INFO("%s", __FUNCTION__);
-    assertInLoopThread();
+    LOG_INFO("{}", __FUNCTION__);
+    // assertInLoopThread();
     mIsExit = true;
+    // Wakeup loop if not in loop thread.
     if (!isInLoopThread()) {
         wakeup();
     }
@@ -179,7 +185,7 @@ void EventLoop::runAfter(std::function<void ()>&& cb, uint32_t microseconds) {
             mpTimerQueue->addTimer(std::move(cb), TimerType::Relative, microseconds);
         } catch (SystemException& e) {
             printBacktrace();
-            LOG_ERR("System Exception %s", e.what());
+            LOG_ERR("System Exception {}", e.what());
         } catch (...) {
             printBacktrace();
             throw ;
@@ -189,11 +195,7 @@ void EventLoop::runAfter(std::function<void ()>&& cb, uint32_t microseconds) {
 }
 
 bool EventLoop::isInLoopThread() {
-    thread_local static int tCachedCurrentTid = -1;
-    if (tCachedCurrentTid < 0) {
-        tCachedCurrentTid = ::gettid();
-    }
-    return (tCachedCurrentTid == tCurrentLoopTid);
+    return (tCurrentLoop != nullptr);
 }
 
 void EventLoop::assertInLoopThread() {
@@ -206,25 +208,25 @@ void EventLoop::assertInLoopThread() {
 }
 
 void EventLoop::wakeup() {
-    LOG_DEBUG("%s", __FUNCTION__);
+    LOG_DEBUG("{}", __FUNCTION__);
     mpWakeupFd->wakeup();
 }
 
 // TODO : Use thread-pool to complete pending tasks.
 void EventLoop::doPendingTasks() {
-    LOG_DEBUG("%s +", __FUNCTION__);
+    LOG_DEBUG("{} +", __FUNCTION__);
     std::vector<std::function<void ()>> pendingTasks;
     {
         std::lock_guard lock { mMutex };
         std::swap(pendingTasks, mPendingTasks);
     }
     mIsDoPendingWorks = true;
-    LOG_DEBUG("%s :pendingTasks count: %d", __FUNCTION__, pendingTasks.size());
+    LOG_DEBUG("{} :pendingTasks count: {}", __FUNCTION__, pendingTasks.size());
     for (auto&& task : pendingTasks) {
         task();
     }
     mIsDoPendingWorks = false;
-    LOG_DEBUG("%s -", __FUNCTION__);
+    LOG_DEBUG("{} -", __FUNCTION__);
 }
 
 } // namespace net

@@ -12,33 +12,26 @@
 #include <string_view>
 #include <system_error>
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "TcpConnection";
+
+constexpr auto TCP_HIGH_WATER_MARK = 65535;
 
 using namespace utils;
 using namespace std;
 
-class ScopeTracer {
-public:
-    ScopeTracer(std::string_view funcName) : mFuncName(funcName) { LOG_DEBUG("%s +", funcName.data()); }
-    ~ScopeTracer() { LOG_DEBUG("%s -", mFuncName.data()); }
-private:
-    std::string_view mFuncName;
-};
-#define TRACE() ScopeTracer __scoper_tracer__(__FUNCTION__);
-
 namespace net::tcp {
 
 TcpConnectionPtr TcpConnection::createTcpConnection(net::SocketPtr&& socket, net::EventLoop* loop) {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     return std::shared_ptr<TcpConnection>(new TcpConnection(std::move(socket), loop));
 }
 
 TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
         : mpEventLoop(loop), mpSocket(std::move(socket)), mState(TcpState::DisConnected) {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{}: start", __FUNCTION__);
+
+    mLocalAddr = mpSocket->getLocalAddr();
+    mPeerAddr = mpSocket->getPeerAddr();
 
     mpChannel = net::Channel::createChannel(mpSocket->getFd(), loop);
     mpChannel->setWriteCallback([this] () {
@@ -53,14 +46,11 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
     mpChannel->setCloseCallback([this] () {
         handleClose();
     });
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{}: end", __FUNCTION__);
 }
 
-TcpConnection::~TcpConnection() {
-    LOG_INFO("%s", __FUNCTION__);
-    // destroyConnection();
-    // if (mCloseCb)
-    //     mCloseCb(shared_from_this());
+TcpConnection::~TcpConnection() noexcept {
+    LOG_INFO("{}", __FUNCTION__);
 }
 
 // Read data from socket to receive buffer
@@ -78,10 +68,10 @@ void TcpConnection::handleRead() {
         }
     } catch (utils::NetworkException& e) {
         if (e.getNetErr() == 0) {
-            LOG_INFO("%s remote socket is shutdown.", __FUNCTION__);
+            LOG_INFO("{} remote socket is shutdown.", __FUNCTION__);
             handleClose();
         } else {
-            LOG_ERR("%s error happen", __FUNCTION__);
+            LOG_ERR("{} error happen", __FUNCTION__);
             handleError();
         }
     }
@@ -106,17 +96,18 @@ void TcpConnection::handleWrite() {
     }
 }
 
+// Call by Channel, must run in loop.
 void TcpConnection::handleClose() {
     TRACE();
     auto errCode = mpSocket->getSocketError();
-    LOG_ERR("%s: code(%d) message(%s)", __FUNCTION__, errCode, strerror(errCode));
+    LOG_ERR("{}: code({}) message({})", __FUNCTION__, errCode, strerror(errCode));
     mpEventLoop->assertInLoopThread();
 
     std::scoped_lock lock { mRecvMutex, mSendMutex };
     mState = TcpState::DisConnected;
     auto scopeGuard = shared_from_this();
     if (mConnectionCb) {
-        mConnectionCb(scopeGuard); // invoke destroyConnection
+        mConnectionCb(scopeGuard);
     }
     if (mCloseCb) {
         mCloseCb(scopeGuard);
@@ -128,7 +119,7 @@ void TcpConnection::handleClose() {
 void TcpConnection::handleError() {
     TRACE();
     auto errCode = mpSocket->getSocketError();
-    LOG_ERR("%s: code(%d) message(%d)", __FUNCTION__, errCode, strerror(errCode));
+    LOG_ERR("{}: code({}) message({})", __FUNCTION__, errCode, strerror(errCode));
     mpEventLoop->assertInLoopThread();
 }
 
@@ -138,10 +129,15 @@ void TcpConnection::send(std::string_view message) {
     TRACE();
     std::lock_guard lock { mSendMutex };
     if (!isConnected()) {
-        LOG_ERR("%s: remote connection is shutdown!", __FUNCTION__);
+        LOG_ERR("{}: remote connection is shutdown!", __FUNCTION__);
         return ;
     }
-    mSendBuffer.appendToBuffer(std::move(message));
+    mSendBuffer.appendToBuffer(message);
+    if (mSendBuffer.size() > TCP_HIGH_WATER_MARK && mHighWaterMarkCb) {
+        mpEventLoop->queueInLoop([&, guard = shared_from_this()] {
+            mHighWaterMarkCb(guard);
+        });
+    }
     if (!mpChannel->isWriting()) {
         if (mpEventLoop->isInLoopThread()) {
             mpChannel->enableWrite();
@@ -173,7 +169,7 @@ std::string TcpConnection::extract(size_t size) noexcept {
 
 // in loop thread.
 void TcpConnection::establishConnect() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     mpChannel->enableRead();
     mState = TcpState::Connected;
@@ -184,7 +180,7 @@ void TcpConnection::establishConnect() {
 
 // in loop thread.
 void TcpConnection::destroyConnection() noexcept {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     try {
         // remove Channel from EventLoop
@@ -193,19 +189,21 @@ void TcpConnection::destroyConnection() noexcept {
         // shutdown file descriptor
         mpSocket = nullptr;
     } catch (const std::exception& e) {
-        LOG_ERR("%s: %s", __FUNCTION__, e.what());
+        LOG_ERR("{}: {}", __FUNCTION__, e.what());
     }
 }
 
+// Internal interface call by TcpClient, must run in loop.
 void TcpConnection::shutdownConnection() noexcept {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
+    mpEventLoop->assertInLoopThread();
     try {
         std::scoped_lock lock { mRecvMutex, mSendMutex };
         mState = TcpState::HalfClosed;
         mpChannel->disableWrite();
         mpSocket->shutdown();
     } catch (const std::exception& e) {
-        LOG_ERR("%s: %s", __FUNCTION__, e.what());
+        LOG_ERR("{}: {}", __FUNCTION__, e.what());
     }
 }
 

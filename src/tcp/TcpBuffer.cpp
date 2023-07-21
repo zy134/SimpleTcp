@@ -10,9 +10,6 @@ extern "C" {
 #include <fcntl.h>
 }
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "TcpBuffer";
 
 using namespace utils;
@@ -47,7 +44,7 @@ void TcpBuffer::readFromSocket(const SocketPtr &socket) {
     } else {
         throw NetworkException("[TcpBuffer] write error.", res);
     }
-    LOG_DEBUG("%s: read bytes: %d, readablebytes %d, writablebytes %d", __FUNCTION__
+    LOG_DEBUG("{}: read bytes: {}, readablebytes {}, writablebytes {}", __FUNCTION__
             , res, readablebytes(), writablebytes());
 }
 
@@ -73,7 +70,7 @@ void TcpBuffer::readFromSocket(const SocketPtr &socket) {
 void TcpBuffer::writeToSocket(const SocketPtr &socket) {
     auto res = ::write(socket->getFd(), getReadPos(), readablebytes());
     if (res > 0) {
-        LOG_DEBUG("%s: write done, write bytes: %d", __FUNCTION__, res);
+        LOG_DEBUG("{}: write done, write bytes: {}", __FUNCTION__, res);
         // Don't write again. Make write availble in next loop.
         updateReadPos(res);
     } else {
@@ -82,13 +79,13 @@ void TcpBuffer::writeToSocket(const SocketPtr &socket) {
 }
 
 void TcpBuffer::appendToBuffer(std::string_view message) {
-    LOG_DEBUG("%s: start, message size:%zu, current buffer size:%zu", __FUNCTION__, message.size(), mBuffer.size());
+    LOG_DEBUG("{}: start, message size:%zu, current buffer size:%zu", __FUNCTION__, message.size(), mBuffer.size());
     while (writablebytes() < message.size()) {
         mBuffer.resize(mBuffer.size() * 2);
     }
     std::copy(message.begin(), message.end(), getWritePos());
     mWritePos += message.size();
-    LOG_DEBUG("%s: end, message size:%zu, current buffer size:%zu", __FUNCTION__, message.size(), mBuffer.size());
+    LOG_DEBUG("{}: end, message size:%zu, current buffer size:%zu", __FUNCTION__, message.size(), mBuffer.size());
 }
 
 std::string TcpBuffer::read(size_t size) noexcept {

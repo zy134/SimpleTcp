@@ -13,9 +13,6 @@ extern "C" {
 #include <string.h>
 }
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "TcpServer";
 
 using namespace utils;
@@ -26,7 +23,7 @@ namespace net::tcp {
 
 TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue) : mpEventLoop(loop) {
     mpEventLoop->assertInLoopThread();
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} +", __FUNCTION__);
     // create listen socket.
     mpListenSocket = Socket::createTcpListenSocket(std::move(serverAddr), maxListenQueue);
     mpListenSocket->setReuseAddr(true);
@@ -42,20 +39,20 @@ TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxLi
 
     mpListenChannel->setCloseCallback([&] {
         auto errCode = mpListenSocket->getSocketError();
-        LOG_FATAL("%s: Error happen for server! Error code:%d, %s", __FUNCTION__
+        LOG_FATAL("{}: Error happen for server! Error code:{}, {}", __FUNCTION__
                 , errCode, gai_strerror(errCode));
     });
 
     mpListenChannel->setErrorCallback([&] {
         auto errCode = mpListenSocket->getSocketError();
-        LOG_ERR("%s: Error happen for server! Error code:%d, %s", __FUNCTION__
+        LOG_ERR("{}: Error happen for server! Error code:{}, {}", __FUNCTION__
                 , errCode, gai_strerror(errCode));
     });
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} -", __FUNCTION__);
 }
 
-TcpServer::~TcpServer() {
-    LOG_INFO("%s", __FUNCTION__);
+TcpServer::~TcpServer() noexcept {
+    LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     mConnectionSet.clear();
     mpListenChannel = nullptr;
@@ -64,7 +61,7 @@ TcpServer::~TcpServer() {
 
 // Must run in loop.
 void TcpServer::start() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     mpListenSocket->listen();
     mpListenChannel->enableRead();
@@ -84,11 +81,15 @@ void TcpServer::setWriteCompleteCallback(TcpWriteCompleteCallback &&cb) noexcept
 
 // Callback for Channel::handleEvent(), so it is run in loop thread.
 void TcpServer::createNewConnection() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     auto clientSocket = mpListenSocket->accept();
     if (!clientSocket) {
-        LOG_ERR("%s: accept error %s", __FUNCTION__, gai_strerror(clientSocket.error()));
+        LOG_ERR("{}: accept error {}", __FUNCTION__, gai_strerror(clientSocket.error()));
+        return ;
+    }
+    if (mConnectionSet.size() == MAX_CONNECTION_NUMS) {
+        LOG_ERR("{}: refuse connect because connection set is full.", __FUNCTION__);
         return ;
     }
     clientSocket.value()->dumpSocketInfo();
@@ -100,22 +101,23 @@ void TcpServer::createNewConnection() {
     newConn->setWriteCompleteCallback(mWriteCompleteCb);
 
     // Must remove connection in loop thread.
-    // EventLoop::poll() 
+    // EventLoop::poll()
     //      => handleEvent()
     //          => Channel::mCloseCb()
     //              => TcpConnection::handleClose()
     //                  => TcpConnection::mCloseCb()
-    //                      => TcpConnection::destroyConnection()
-    //                          => Socket::~Socket()
-    //                              => Channel::~Channel()
-    //                                  => EventLoop::removeChannel()
+    //                      => EventLoop::queueInLoop()
+    //
+    //      => ~Channel()
+    //          => EventLoop::removeChannel()
+    //              => ~Socket()
+    //                  => ~TcpConnection()
     newConn->setCloseCallback([&] (const TcpConnectionPtr& conn) {
-            mpEventLoop->assertInLoopThread();
-            auto guard = conn;
-            conn->destroyConnection();
+        mpEventLoop->queueInLoop([&, guard = conn] {
+            guard->destroyConnection();
             mConnectionSet.erase(guard);
-        }
-    );
+        });
+    });
     // TODO: check weather a run-condition occurs.
     newConn->establishConnect();
     mConnectionSet.insert(std::move(newConn));

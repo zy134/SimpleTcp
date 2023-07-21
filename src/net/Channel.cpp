@@ -40,7 +40,7 @@ const auto CHANNEL_WRITE_EVENT = EPOLLOUT;
 const auto CHANNEL_NONE_EVENT = 0;
 
 Channel::Channel(int fd, EventLoop* loop) {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     loop->assertInLoopThread();
     assertTrue(fd >= 0, "[Channl] File descriptor must be valid!");
 
@@ -64,16 +64,16 @@ Channel::Channel(int fd, EventLoop* loop) {
 }
 
 Channel::~Channel() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} +", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     mpEventLoop->removeChannel(this);
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} -", __FUNCTION__);
 }
 
 // Just call by EventLoop::loop()
 // Must run in loop.
 void Channel::handleEvent() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} +", __FUNCTION__);
     if ((mRevent & EPOLLHUP) && !(mRevent & EPOLLIN)) {
         mCloseCb();
         return ;
@@ -88,38 +88,38 @@ void Channel::handleEvent() {
     if (mRevent & EPOLLOUT) {
         mWriteCb();
     }
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} -", __FUNCTION__);
 }
 
 void Channel::enableRead() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     if (mEvent & CHANNEL_READ_EVENT) { return; }
     mEvent |= CHANNEL_READ_EVENT;
     mpEventLoop->updateChannel(this);
 }
 
 void Channel::enableWrite() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     if (mEvent & CHANNEL_WRITE_EVENT) { return; }
     mEvent |= CHANNEL_WRITE_EVENT;
     mpEventLoop->updateChannel(this);
 }
 
 void Channel::disableRead() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     if (!(mEvent & CHANNEL_READ_EVENT)) { return; }
     mEvent &= (~CHANNEL_READ_EVENT);
     mpEventLoop->updateChannel(this);
 }
 void Channel::disableWrite() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     if (!(mEvent & CHANNEL_WRITE_EVENT)) { return; }
     mEvent &= (~CHANNEL_WRITE_EVENT);
     mpEventLoop->updateChannel(this);
 }
 
 void Channel::disableAll() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     mEvent = CHANNEL_NONE_EVENT;
     mpEventLoop->updateChannel(this);
 }

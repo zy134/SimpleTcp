@@ -11,6 +11,7 @@
 #include <system_error>
 #include <thread>
 #include <chrono>
+#include <random>
 
 using namespace net;
 using namespace utils;
@@ -26,23 +27,32 @@ namespace net::tcp {
 
 static SocketPtr connectToServer(SocketAddr&& serverAddr) {
     // Retry three times.
-    for (int i = 0; i != 3; ++i) {
+    std::default_random_engine e;
+    std::uniform_int_distribution<int> distr { 0, 500 };
+    auto randomInterval = std::chrono::microseconds(distr(e));
+    auto reconnectInterval = 500ms;
+    constexpr auto MAX_CONNECT_TIMEOUT = 30s;
+
+    while (reconnectInterval < MAX_CONNECT_TIMEOUT) {
         auto result = Socket::createTcpClientSocket(std::move(serverAddr));
         if (result.has_value()) {
-            LOG_INFO("%s : create socket success.", __FUNCTION__);
+            LOG_INFO("{} : create socket success.", __FUNCTION__);
             return std::move(result.value());
         } else {
             switch (result.error()) {
+                // Retry to connect again.
+                // The bad socket would close by ~Socket() automaticly.
                 case EAGAIN:
                 case EADDRINUSE:
                 case EADDRNOTAVAIL:
                 case ECONNREFUSED:
                 case ENETUNREACH:
-                    LOG_INFO("%s : retry connect.", __FUNCTION__);
-                    std::this_thread::sleep_for(i * 1000ms);
-                    // goto retry;
+                    LOG_INFO("{} : retry connect.", __FUNCTION__);
+                    std::this_thread::sleep_for(reconnectInterval + randomInterval);
+                    reconnectInterval = reconnectInterval * 2;
                     break;
-
+                
+                // Severe error happen, throw a exception.
                 case EACCES:
                 case EPERM:
                 case EAFNOSUPPORT:
@@ -51,7 +61,7 @@ static SocketPtr connectToServer(SocketAddr&& serverAddr) {
                 case EFAULT:
                 case ENOTSOCK:
                 default:
-                    LOG_ERR("%s: error(%d), message(%s)", __FUNCTION__, result.error(), strerror(result.error()));
+                    LOG_ERR("{}: error({}), message({})", __FUNCTION__, result.error(), strerror(result.error()));
                     throw NetworkException("[TcpClient] connect error", result.error());
             }
         }
@@ -60,29 +70,29 @@ static SocketPtr connectToServer(SocketAddr&& serverAddr) {
 }
 
 TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr) :mpEventLoop(loop) {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} +", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     // Create socket which connect to remote server.
     mConnSocket = connectToServer(std::move(serverAddr));
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} -", __FUNCTION__);
 }
 
 void TcpClient::connect() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} +", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     auto errCode = mConnSocket->getSocketError();
-    LOG_INFO("%s socket errCode %d", __FUNCTION__, errCode);
+    LOG_INFO("{} socket errCode {}", __FUNCTION__, errCode);
     // Connect is not done, so use a temporary channel to wait for connection enable.
     if (errCode == EINPROGRESS || errCode == EINTR || errCode == EISCONN) {
-        LOG_INFO("%s : connect in progress.", __FUNCTION__);
+        LOG_INFO("{} : connect in progress.", __FUNCTION__);
         mConnChannel = Channel::createChannel(mConnSocket->getFd(), mpEventLoop);
         mConnChannel->setErrorCallback([&] {
             auto errCode = mConnSocket->getSocketError();
-            LOG_ERR("%s : connect error(%d) message(%s)", __FUNCTION__, errCode, strerror(errCode));
+            LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, errCode, strerror(errCode));
             throw NetworkException("[TcpClient] connect error", errCode);
         });
         mConnChannel->setWriteCallback([&] {
-            LOG_INFO("%s : connect has done.", __FUNCTION__);
+            LOG_INFO("{} : connect has done.", __FUNCTION__);
             mpEventLoop->queueInLoop([&] {
                 createNewConnection();
             });
@@ -96,11 +106,11 @@ void TcpClient::connect() {
     } else {
         throw NetworkException("[TcpClient] connect error.", errCode);
     }
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} -", __FUNCTION__);
 }
 
 void TcpClient::disconnect() {
-    LOG_INFO("%s", __FUNCTION__);
+    LOG_INFO("{}", __FUNCTION__);
     assertTrue(mConnection != nullptr, "[TcpClient] mConnection is empty!");
     if (mpEventLoop->isInLoopThread()) {
         mConnection->shutdownConnection();
@@ -113,20 +123,20 @@ void TcpClient::disconnect() {
 
 // The life time of mConnection must be longer then connection!
 TcpClient::~TcpClient() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} +", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     if (!mConnection.unique()) {
-        LOG_ERR("%s: Why there has more then one reference to this connection?", __FUNCTION__);
+        LOG_ERR("{}: Why there has more then one reference to this connection?", __FUNCTION__);
     }
     if (mConnection) {
         mConnection->destroyConnection();
         mConnection = nullptr;
     }
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} -", __FUNCTION__);
 }
 
 void TcpClient::createNewConnection() {
-    LOG_INFO("%s +", __FUNCTION__);
+    LOG_INFO("{} +", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     assertTrue(mConnSocket->getSocketError() == 0, "[TcpClient] bad socket!");
     mConnSocket->dumpSocketInfo();
@@ -147,13 +157,13 @@ void TcpClient::createNewConnection() {
     //                              => Channel::~Channel()
     //                                  => EventLoop::removeChannel()
     mConnection->setCloseCallback([&] (const TcpConnectionPtr& conn) {
-        mpEventLoop->assertInLoopThread();
-        auto guard = conn;
-        conn->destroyConnection();
-        mConnection = nullptr;
+        mpEventLoop->queueInLoop([&, guard = conn] {
+            guard->destroyConnection();
+            mConnection = nullptr;
+        });
     });
     mConnection->establishConnect();
-    LOG_INFO("%s -", __FUNCTION__);
+    LOG_INFO("{} -", __FUNCTION__);
 }
 
 } // namespace net::tcp

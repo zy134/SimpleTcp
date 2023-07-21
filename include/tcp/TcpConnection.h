@@ -30,6 +30,7 @@ using TcpConnectionCallback     = std::function<void (const TcpConnectionPtr&)>;
 using TcpMessageCallback        = std::function<void (const TcpConnectionPtr&, TcpBuffer&)>;
 using TcpCloseCallback          = std::function<void (const TcpConnectionPtr&)>;
 using TcpWriteCompleteCallback  = std::function<void (const TcpConnectionPtr&)>;
+using TcpHighWaterMarkCallback  = std::function<void (const TcpConnectionPtr&)>;
 
 // The state of Tcp connection.
 enum class TcpState {
@@ -56,6 +57,9 @@ public:
 
     // User interface.
     void setWriteCompleteCallback(const TcpWriteCompleteCallback& cb) noexcept { mWriteCompleteCb = cb; }
+
+    // User interface.
+    void setHighWaterMarkCallback(const TcpHighWaterMarkCallback& cb) noexcept { mHighWaterMarkCb = cb; }
 
     // Internal interface.
     // Close callback is used by TcpServer/TcpClient to notify them erase TcpConnection from collection.
@@ -117,29 +121,32 @@ public:
      */
     void shutdownConnection() noexcept;
 
-    ~TcpConnection();
+    ~TcpConnection() noexcept;
 
     [[nodiscard]]
-    bool isConnected() const noexcept { return mState == TcpState::Connected; }
+    inline bool isConnected() const noexcept { return mState == TcpState::Connected; }
 
     [[nodiscard]]
-    bool isDisconnected() const noexcept { return mState == TcpState::DisConnected; }
+    inline bool isDisconnected() const noexcept { return mState == TcpState::DisConnected; }
 
-    void setState(TcpState state) noexcept { mState = state; }
+    inline void setState(TcpState state) noexcept { mState = state; }
 
-    SocketAddr getLocalAddr() const noexcept { return mpSocket->getLocalAddr(); }
+    inline SocketAddr getLocalAddr() const noexcept { return mLocalAddr; }
 
-    SocketAddr getPeerAddr() const noexcept { return mpSocket->getPeerAddr(); }
+    inline SocketAddr getPeerAddr() const noexcept { return mPeerAddr; }
 
 private:
     net::EventLoop*             mpEventLoop;
     net::SocketPtr              mpSocket;
     net::ChannelPtr             mpChannel;
-    TcpCloseCallback            mCloseCb;
+    net::SocketAddr             mLocalAddr;
+    net::SocketAddr             mPeerAddr;
 
+    TcpCloseCallback            mCloseCb;
     TcpConnectionCallback       mConnectionCb;
     TcpMessageCallback          mMessageCb;
     TcpWriteCompleteCallback    mWriteCompleteCb;
+    TcpHighWaterMarkCallback    mHighWaterMarkCb;
 
     TcpState                    mState;
 

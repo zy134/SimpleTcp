@@ -97,8 +97,6 @@ private:
     std::unique_ptr<TimerQueue>                     mpTimerQueue;
     std::vector<std::function<void ()>>             mPendingTasks;
 
-    thread_local static int tCurrentLoopTid;
-
 private:
 
     void wakeup();
