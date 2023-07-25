@@ -3,3 +3,5 @@ build/*
 logs
 logs/*
 .clangd
+.cache
+compile_commands.json

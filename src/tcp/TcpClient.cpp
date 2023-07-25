@@ -51,7 +51,7 @@ static SocketPtr connectToServer(SocketAddr&& serverAddr) {
                     std::this_thread::sleep_for(reconnectInterval + randomInterval);
                     reconnectInterval = reconnectInterval * 2;
                     break;
-                
+
                 // Severe error happen, throw a exception.
                 case EACCES:
                 case EPERM:
@@ -135,6 +135,7 @@ TcpClient::~TcpClient() {
     LOG_INFO("{} -", __FUNCTION__);
 }
 
+// TODO: add reconnect feature.
 void TcpClient::createNewConnection() {
     LOG_INFO("{} +", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
@@ -147,7 +148,7 @@ void TcpClient::createNewConnection() {
     mConnection->setConnectionCallback(mConnectionCb);
     // Passive close.
     // Must remove connection in loop thread.
-    // EventLoop::poll() 
+    // EventLoop::poll()
     //      => handleEvent()
     //          => Channel::mCloseCb()
     //              => TcpConnection::handleClose()

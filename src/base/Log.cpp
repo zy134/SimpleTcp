@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <exception>
+#include <fmt/core.h>
 #include <iostream>
 #include <memory>
 #include <string_view>
@@ -16,9 +17,11 @@
 #include <array>
 #include <future>
 #include <chrono>
+#include <utility>
 #include <vector>
 #include <fstream>
 #include <filesystem>
+#include <ctime>
 
 #ifdef TAG
 #undef TAG
@@ -26,11 +29,6 @@
 static constexpr std::string_view TAG = "LOG";
 
 extern "C" {
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <time.h>
-
 #if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
     #include <unistd.h>
 #elif defined (__WIN32) || defined(__WIN64) || defined(WIN32)
@@ -46,6 +44,7 @@ namespace utils::detail {
 // TODO: equals to page size
 constexpr size_t LOG_BUFFER_SIZE = 4096;
 
+using namespace std;
 using namespace std::chrono;
 using namespace std::chrono_literals;
 
@@ -67,10 +66,10 @@ public:
         return (mRawBuffer.size() - mUsedSize) >= size;
     }
 
-    void write(const char* srcData, size_t size) {
+    void write(std::string_view line) {
         // std::cout << "start write size:" << size << std::endl;
-        ::memcpy(mRawBuffer.data() + mUsedSize, srcData, size);
-        mUsedSize += size;
+        ::memcpy(mRawBuffer.data() + mUsedSize, line.data(), line.size());
+        mUsedSize += line.size();
     }
 
     [[nodiscard]]
@@ -85,7 +84,7 @@ public:
     }
 
     [[nodiscard]]
-    int size() const {
+    size_t size() const {
         return mUsedSize;
     }
 
@@ -216,36 +215,27 @@ void LogServer::write(LogLevel level, std::string_view fmt, std::string_view tag
     std::lock_guard lock { mMutex };
 
     // Prepare log line.
-    std::array<char, LOG_MAX_LINE_SIZE> logLine = {};
-    time_t t = time(nullptr);
+    time_t t = system_clock::to_time_t(system_clock::now());
     struct tm now = {};
     // Get local time, it's not a system call.
-    // TODO: Deal with this exception.
-    if (localtime_r(&t, &now) == nullptr) {
-        throw SystemException("Can't get current time.");
-    }
+    // Use UTC time.
+    ::gmtime_r(&t, &now);
 
     // Get milliseconds suffix
     auto timeSinceEpoch = std::chrono::system_clock::now().time_since_epoch().count();
     auto milliSeconds = static_cast<int>(timeSinceEpoch % (1000 * 1000 * 1000)) / 1000;
-
     // Format log line.
-    int logLineLength = snprintf(logLine.data(), logLine.size(), "%04d-%02d-%02d %02d.%02d.%02d.%06d %5d %5d [%s][%s] %s\n"
+    auto logLine = fmt::format("{:4d}-{:02d}-{:02d} {:02d}.{:02d}.{:02d}.{:06d} {:5d} {:5d} [{}][{}] {}\n"
             , now.tm_year + 1900, now.tm_mon + 1, now.tm_mday
-            , now.tm_hour, now.tm_min, now.tm_sec
-            , milliSeconds
+            , now.tm_hour, now.tm_min, now.tm_sec, milliSeconds
             , pid, tid
             , log_level_to_string(level)
-            , tag.data()
-            , fmt.data());
-    // TODO: Deal with this exception.
-    if (logLineLength < 0) {
-        throw SystemException("Error happen when format string.");
-    }
+            , tag
+            , fmt);
 
     // Write log line to memory buffer.
-    if (mpCurrentBuffer->writable(logLineLength)) {
-        mpCurrentBuffer->write(logLine.data(), logLineLength);
+    if (mpCurrentBuffer->writable(logLine.size())) {
+        mpCurrentBuffer->write(logLine);
     } else {
         // Current buffer is full, need to flush.
         mvPendingBuffers.emplace_back(std::move(mpCurrentBuffer));
@@ -256,7 +246,7 @@ void LogServer::write(LogLevel level, std::string_view fmt, std::string_view tag
             mpCurrentBuffer = std::move(mvAvailbleBuffers.back());
             mvAvailbleBuffers.pop_back();
         }
-        mpCurrentBuffer->write(logLine.data(), logLineLength);
+        mpCurrentBuffer->write(logLine);
         // Notify backend server to flush pending buffers.
         mCond.notify_one();
     }
@@ -341,14 +331,13 @@ std::fstream LogServer::createLogFileStream() {
     }
 
     // Format the name of log file.
-    std::array<char, 128> filePath = {};
-    time_t t = time(nullptr);
+    time_t t = ::time(nullptr);
     struct tm now = {};
     // TODO: Deal with this exception.
-    if (localtime_r(&t, &now) == nullptr) {
-        throw SystemException("Can't get current time.");
-    }
-    snprintf(filePath.data(), filePath.size(), "%s/%04d-%02d-%02d_%02d-%02d-%02d.log"
+    // No need to check result. it would throw exception.
+    ::gmtime_r(&t, &now);
+
+    auto filePath = fmt::format("{}/{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}.log"
             , DEFAULT_LOG_PATH
             , now.tm_year + 1900, now.tm_mon + 1, now.tm_mday
             , now.tm_hour, now.tm_min, now.tm_sec

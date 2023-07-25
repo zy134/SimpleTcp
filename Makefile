@@ -34,14 +34,18 @@ TCP_MODULE  := $(BUILD_PATH)/lib/libMyTcp.a
 # ==============================================================================
 # Set compile command and compile flags.
 CC       := gcc
-CXX      := g++
+CXX      := clang++
 CFLAGS   :=
 CPPFLAGS := -std=c++20 -DDEFAULT_LOG_PATH=\"$(LOG_PATH)\" --include-directory=$(INCLUDE_PATH) -pthread -Wall -Werror
 
 # compile flag for debug version
-DEBUG_FLAGS := -O0 -g -fno-omit-frame-pointer -rdynamic -DDEBUG_BUILD=1 -DDEFAULT_LOG_LEVEL=1
+DEBUG_FLAGS := -Og -g -fno-omit-frame-pointer -DDEBUG_BUILD=1 -DDEFAULT_LOG_LEVEL=1
 # compile flag for release version
 RELEASE_FLAGS := -O2 -DRELEASE_BUILD=1 -DDEFAULT_LOG_LEVEL=2
+
+# address sanitizer flags
+ASAN_FLAGS := -fsanitize=address -fsanitize=leak -fsanitize=undefined
+DEBUG_FLAGS += $(ASAN_FLAGS)
 
 # default, build debug version.
 ifeq ($(RELEASE_BUILD),true)

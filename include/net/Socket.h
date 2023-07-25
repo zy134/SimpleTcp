@@ -67,10 +67,10 @@ public:
 
     [[nodiscard]]
     SocketAddr getPeerAddr() const noexcept { return mPeerAddr; }
-    
+
     [[nodiscard]]
     int getSocketError() const noexcept;
-    
+
     void dumpSocketInfo() const noexcept;
 
 private:
@@ -84,8 +84,6 @@ private:
     int         mFd;
     bool        mIsListenSocket;
     int         mMaxListenQueue;
-    IP_PROTOCOL mIpProtocol;
-    uint32_t    mPort;
     SocketAddr  mLocalAddr;
     SocketAddr  mPeerAddr;
 

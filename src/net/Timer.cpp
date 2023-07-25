@@ -20,7 +20,7 @@ TimerPtr Timer::createTimer() {
 }
 
 constexpr auto MICROSECONDS_PER_SECOND = 1000 * 1000;
-constexpr auto NANOSECONDS_PER_SECOND = 1000 * 1000 * 1000;
+// constexpr auto NANOSECONDS_PER_SECOND = 1000 * 1000 * 1000;
 constexpr auto NANOSECONDS_PER_USEC = 1000;
 
 Timer::~Timer() {

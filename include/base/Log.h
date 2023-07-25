@@ -23,10 +23,6 @@
 #error "libfmt not found!"
 #endif
 
-extern "C" {
-#include <stdio.h>
-}
-
 namespace utils {
 
 enum class LogLevel {
@@ -90,7 +86,8 @@ private:
 
 // Default log file path.
 #ifndef DEFAULT_LOG_PATH
-#define DEFAULT_LOG_PATH "/home/zy134/test/ChatServer/logs"
+//#define DEFAULT_LOG_PATH "/home/zy134/test/ChatServer/logs"
+#error Undefined DEFAULT_LOG_PATH!
 #endif
 // Default log line length.
 #ifndef LOG_MAX_LINE_SIZE
