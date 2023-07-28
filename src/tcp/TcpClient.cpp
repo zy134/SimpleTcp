@@ -7,164 +7,244 @@
 #include "net/Socket.h"
 #include "tcp/TcpConnection.h"
 
-#include <cstring>
+#include <algorithm>
+#include <cerrno>
+#include <exception>
+#include <fmt/format.h>
+#include <mutex>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 #include <chrono>
 #include <random>
 
+extern "C" {
+#include <unistd.h>
+}
+
 using namespace net;
 using namespace utils;
 using namespace std;
+using namespace std::chrono;
 using namespace chrono_literals;
 
-#ifdef TAG
-#undef TAG
-#endif
+static constexpr std::string_view UNKNOWN_CLIENT_ID = "UNKNOWN_CLIENT_ID";
 static constexpr std::string_view TAG = "TcpClient";
 
 namespace net::tcp {
 
-static SocketPtr connectToServer(SocketAddr&& serverAddr) {
-    // Retry three times.
-    std::default_random_engine e;
-    std::uniform_int_distribution<int> distr { 0, 500 };
-    auto randomInterval = std::chrono::microseconds(distr(e));
-    auto reconnectInterval = 500ms;
-    constexpr auto MAX_CONNECT_TIMEOUT = 30s;
-
-    while (reconnectInterval < MAX_CONNECT_TIMEOUT) {
-        auto result = Socket::createTcpClientSocket(std::move(serverAddr));
-        if (result.has_value()) {
-            LOG_INFO("{} : create socket success.", __FUNCTION__);
-            return std::move(result.value());
-        } else {
-            switch (result.error()) {
-                // Retry to connect again.
-                // The bad socket would close by ~Socket() automaticly.
-                case EAGAIN:
-                case EADDRINUSE:
-                case EADDRNOTAVAIL:
-                case ECONNREFUSED:
-                case ENETUNREACH:
-                    LOG_INFO("{} : retry connect.", __FUNCTION__);
-                    std::this_thread::sleep_for(reconnectInterval + randomInterval);
-                    reconnectInterval = reconnectInterval * 2;
-                    break;
-
-                // Severe error happen, throw a exception.
-                case EACCES:
-                case EPERM:
-                case EAFNOSUPPORT:
-                case EALREADY:
-                case EBADF:
-                case EFAULT:
-                case ENOTSOCK:
-                default:
-                    LOG_ERR("{}: error({}), message({})", __FUNCTION__, result.error(), strerror(result.error()));
-                    throw NetworkException("[TcpClient] connect error", result.error());
-            }
-        }
-    }
-    throw NetworkException("[TcpClient] retry connect error", errno);
-}
-
-TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr) :mpEventLoop(loop) {
-    LOG_INFO("{} +", __FUNCTION__);
+TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr)
+    : mpEventLoop(loop), mServerAddr(std::move(serverAddr))
+      , mState(ClientState::Disconnect), mConnTimeout(TCP_INIT_RETRY_TIMEOUT), mIdentification(UNKNOWN_CLIENT_ID)
+{
+    LOG_INFO("{}: E", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
-    // Create socket which connect to remote server.
-    mConnSocket = connectToServer(std::move(serverAddr));
-    LOG_INFO("{} -", __FUNCTION__);
-}
-
-void TcpClient::connect() {
-    LOG_INFO("{} +", __FUNCTION__);
-    mpEventLoop->assertInLoopThread();
-    auto errCode = mConnSocket->getSocketError();
-    LOG_INFO("{} socket errCode {}", __FUNCTION__, errCode);
-    // Connect is not done, so use a temporary channel to wait for connection enable.
-    if (errCode == EINPROGRESS || errCode == EINTR || errCode == EISCONN) {
-        LOG_INFO("{} : connect in progress.", __FUNCTION__);
-        mConnChannel = Channel::createChannel(mConnSocket->getFd(), mpEventLoop);
-        mConnChannel->setErrorCallback([&] {
-            auto errCode = mConnSocket->getSocketError();
-            LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, errCode, strerror(errCode));
-            throw NetworkException("[TcpClient] connect error", errCode);
-        });
-        mConnChannel->setWriteCallback([&] {
-            LOG_INFO("{} : connect has done.", __FUNCTION__);
-            mpEventLoop->queueInLoop([&] {
-                createNewConnection();
-            });
-            // It's safe because there has no need to access mConnChannel again.
-            mConnChannel = nullptr;
-        });
-        mConnChannel->enableWrite();
-    } else if (errCode == 0) {
-    // Connect is done, create a new TcpConnection.
-        createNewConnection();
-    } else {
-        throw NetworkException("[TcpClient] connect error.", errCode);
-    }
-    LOG_INFO("{} -", __FUNCTION__);
-}
-
-void TcpClient::disconnect() {
-    LOG_INFO("{}", __FUNCTION__);
-    assertTrue(mConnection != nullptr, "[TcpClient] mConnection is empty!");
-    if (mpEventLoop->isInLoopThread()) {
-        mConnection->shutdownConnection();
-    } else {
-        mpEventLoop->queueInLoop([&] {
-            mConnection->shutdownConnection();
-        });
-    }
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 // The life time of mConnection must be longer then connection!
 TcpClient::~TcpClient() {
-    LOG_INFO("{} +", __FUNCTION__);
+    LOG_INFO("{}: E", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
-    if (!mConnection.unique()) {
+    if (mConnection && !mConnection.unique()) {
         LOG_ERR("{}: Why there has more then one reference to this connection?", __FUNCTION__);
     }
-    if (mConnection) {
-        mConnection->destroyConnection();
-        mConnection = nullptr;
-    }
-    LOG_INFO("{} -", __FUNCTION__);
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
-// TODO: add reconnect feature.
-void TcpClient::createNewConnection() {
-    LOG_INFO("{} +", __FUNCTION__);
+void TcpClient::connect() {
+    LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
+    transStateInLoop(ClientState::Connecting);
+}
+
+void TcpClient::disconnect() {
+    LOG_INFO("{}", __FUNCTION__);
+    if (!mConnection) {
+        LOG_WARN("{}: shutdown in a bad connection!", __FUNCTION__);
+        return ;
+    }
+    mpEventLoop->queueInLoop([this] {
+        transStateInLoop(ClientState::ForceDisconnected);
+    });
+}
+
+void TcpClient::transStateInLoop(ClientState newState) {
+    TRACE();
+    mpEventLoop->assertInLoopThread();
+    auto oldState = mState;
+    LOG_INFO("{}: (old->new) ({} -> {})", __FUNCTION__, to_string(oldState), to_string(newState));
+    switch (newState) {
+        case ClientState::Disconnect:
+        // We don't allow transform state from Connecting to Disconnect, if retry Connecting failed it will
+        // throw a exception.
+            if (oldState != ClientState::Connected) {
+                LOG_ERR("{}: Bad state! Connection is invalid.", __FUNCTION__);
+                break;
+            }
+            mState = newState;
+            doDisconnected();
+            break;
+        case ClientState::Connecting:
+            if (oldState == ClientState::Connected) {
+                LOG_ERR("{}: Bad state! Repeated connect...", __FUNCTION__);
+                break;
+            }
+            if (oldState == ClientState::Connecting) {
+                LOG_DEBUG("{}: retry connect, timeout: {}ms", __FUNCTION__, mConnTimeout.count());
+            }
+            mState = newState;
+            doConnecting();
+            break;
+        case ClientState::Connected:
+            if (oldState != ClientState::Connecting) {
+                LOG_ERR("{}: Bad state! Connected must trans from Connecting...", __FUNCTION__);
+                break;
+            }
+            mState = newState;
+            doConnected();
+            break;
+        case ClientState::ForceDisconnected:
+            if (oldState == ClientState::Disconnect || oldState == ClientState::ForceDisconnected) {
+                LOG_WARN("{}: Bad state! Connection is already closed.", __FUNCTION__);
+                break;
+            }
+            mState = newState;
+            doForceDisconnected();
+            break;
+    }
+}
+
+void TcpClient::doConnecting() {
+    LOG_INFO("{}: E", __FUNCTION__);
+    mConnChannel = nullptr;
+    mConnSocket = nullptr;
+    auto serverAddr = mServerAddr;
+    // Get non-block socket.
+    mConnSocket = Socket::createTcpClientSocket(std::move(serverAddr));
+    if (mConnSocket == nullptr) {
+        if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
+            mpEventLoop->runAfter([this] {
+                transStateInLoop(ClientState::Connecting);
+            }, mConnTimeout);
+            mConnTimeout *= 2;
+        } else {
+            throw NetworkException("[TcpClient] Connect time out!", errno);
+        }
+        LOG_INFO("{}: X", __FUNCTION__);
+        return ;
+    }
+    LOG_INFO("{} : create socket success.", __FUNCTION__);
+
+    // Check the state of socket.
+    auto errCode = mConnSocket->getSocketError();
+    LOG_INFO("{} : socket state {}", __FUNCTION__, errCode);
+    if (errCode == EINPROGRESS || errCode == EINTR || errCode == EISCONN) {
+        // Connect is not done, use a channel to monitor the state of socket.
+        LOG_INFO("{} : connect in progress.", __FUNCTION__);
+        mConnChannel = Channel::createChannel(mConnSocket->getFd(), mpEventLoop);
+        mConnChannel->setErrorCallback([this] {
+            auto errCode = mConnSocket->getSocketError();
+            LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, errCode, strerror(errCode));
+            // If connect failed, retry.
+            if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
+                mpEventLoop->runAfter([this] {
+                    transStateInLoop(ClientState::Connecting);
+                }, mConnTimeout);
+                mConnTimeout *= 2;
+            } else {
+                throw NetworkException("[TcpClient] Connect time out!", errno);
+            }
+        });
+        mConnChannel->setWriteCallback([this] {
+            // TODO:
+            // Need check the state of socket.
+            LOG_INFO("{} : connect has done.", __FUNCTION__);
+            mpEventLoop->queueInLoop([this] {
+                transStateInLoop(ClientState::Connected);
+            });
+        });
+        mConnChannel->enableWrite();
+    } else if (errCode == 0) {
+        // Connect is done, create a new TcpConnection.
+        transStateInLoop(ClientState::Connected);
+    } else {
+        // Error happen, retry connect.
+        LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, errCode, strerror(errCode));
+        if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
+            mpEventLoop->runAfter([this] {
+                transStateInLoop(ClientState::Connecting);
+            }, mConnTimeout);
+            mConnTimeout *= 2;
+        } else {
+            throw NetworkException("[TcpClient] Connect time out!", errno);
+        }
+
+    }
+    LOG_INFO("{}: X", __FUNCTION__);
+}
+
+void TcpClient::doConnected() {
+    LOG_INFO("{}: E", __FUNCTION__);
+    assertTrue(mConnSocket != nullptr, "[TcpClient] bad socket pointer!");
     assertTrue(mConnSocket->getSocketError() == 0, "[TcpClient] bad socket!");
     mConnSocket->dumpSocketInfo();
 
+    // This channel is useless now.
+    mConnChannel = nullptr;
+    // Reset timeout.
+    mConnTimeout = TCP_INIT_RETRY_TIMEOUT;
+
+    // Create new connection.
     mConnection = TcpConnection::createTcpConnection(std::move(mConnSocket), mpEventLoop);
     mConnection->setMessageCallback(mMessageCb);
     mConnection->setWriteCompleteCallback(mWriteCompleteCb);
     mConnection->setConnectionCallback(mConnectionCb);
-    // Passive close.
-    // Must remove connection in loop thread.
-    // EventLoop::poll()
-    //      => handleEvent()
-    //          => Channel::mCloseCb()
-    //              => TcpConnection::handleClose()
-    //                  => TcpConnection::mCloseCb()
-    //                      => TcpConnection::destroyConnection()
-    //                          => Socket::~Socket()
-    //                              => Channel::~Channel()
-    //                                  => EventLoop::removeChannel()
-    mConnection->setCloseCallback([&] (const TcpConnectionPtr& conn) {
-        mpEventLoop->queueInLoop([&, guard = conn] {
-            guard->destroyConnection();
-            mConnection = nullptr;
+    mConnection->setCloseCallback([this] (const TcpConnectionPtr&) {
+        mpEventLoop->queueInLoop([this] {
+            transStateInLoop(ClientState::Disconnect);
         });
     });
+    // Create new idenfication for TcpClient.
+    mIdentification = fmt::format("{:016d}_{:05d}_{}_{}"
+        , steady_clock::now().time_since_epoch().count()
+        , gettid()
+        , mConnection->getLocalAddr().mPort
+        , mConnection->getLocalAddr().mIpAddr
+    );
+    LOG_INFO("{}: New Identification {}", __FUNCTION__, mIdentification);
+
     mConnection->establishConnect();
-    LOG_INFO("{} -", __FUNCTION__);
+
+    LOG_INFO("{}: X", __FUNCTION__);
 }
+
+void TcpClient::doDisconnected() {
+    LOG_INFO("{} E", __FUNCTION__);
+    assertTrue(mConnection != nullptr, "[TcpClient] destroy on a bad connection!");
+    // First, delete old Connection.
+    mIdentification = UNKNOWN_CLIENT_ID;
+    mConnection->destroyConnection();
+    mConnection = nullptr;
+    // Second, if remote is shutdown, try to re-connect after a delay.
+    mConnTimeout = TCP_INIT_RETRY_TIMEOUT;
+    if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
+        mpEventLoop->runAfter([this] {
+            transStateInLoop(ClientState::Connecting);
+        }, mConnTimeout);
+        mConnTimeout *= 2;
+    } else {
+        throw NetworkException("[TcpClient] Connect time out!", errno);
+    }
+    LOG_INFO("{} X", __FUNCTION__);
+}
+
+void TcpClient::doForceDisconnected() {
+    LOG_INFO("{} E", __FUNCTION__);
+    mConnection->shutdownConnection();
+    LOG_INFO("{} X", __FUNCTION__);
+}
+
 
 } // namespace net::tcp

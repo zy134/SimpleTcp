@@ -74,7 +74,7 @@ inline static std::string transAddrToString(const sockaddr_in6& addr) {
     return result;
 }
 
-SocketResult Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
+SocketPtr Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
     std::unique_ptr<Socket> result;
 
     constexpr auto failedResult = [] (int err) {
@@ -89,17 +89,17 @@ SocketResult Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
         serverAddr.sin_port = htons(serverSocketAddr.mPort);
         // inet_pton return 1 indicate success.
         if (auto res = ::inet_pton(AF_INET, serverSocketAddr.mIpAddr.data(), &serverAddr.sin_addr); res != 1) {
-            LOG_ERR("{}: error IP addr {}, res {}", __FUNCTION__, serverSocketAddr.mIpAddr.data(), res);
-            return tl::unexpected(errno);
+            LOG_ERR("{}: error IP addr {}, error {}", __FUNCTION__, serverSocketAddr.mIpAddr.data(), errno);
+            return result;
         }
         auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv4);
         if (auto res = ::connect(socketFd, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr))
-                ; res != 0 && failedResult(errno)) {
+                ; res < 0 && failedResult(errno)) {
             LOG_ERR("{}: connect failed, addr:{} port:{}", __FUNCTION__
                     , serverSocketAddr.mIpAddr.data(), serverSocketAddr.mPort);
-            return tl::unexpected(errno);
+            return result;
         } else if (res != 0) {
-            LOG_INFO("{}: connect not done for {}", __FUNCTION__, serverSocketAddr.mIpAddr.data());
+            LOG_INFO("{}: socket state ({}), ({})", __FUNCTION__, errno, strerror(errno));
         }
         result.reset(new Socket(socketFd));
     } else {
@@ -110,15 +110,13 @@ SocketResult Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
         if (auto res = ::inet_pton(AF_INET6, serverSocketAddr.mIpAddr.data(), &serverAddr.sin6_addr); res != 1) {
             LOG_ERR("{}: connect failed, addr:{} port:{}", __FUNCTION__
                     , serverSocketAddr.mIpAddr.data(), serverSocketAddr.mPort);
-            return tl::unexpected(errno);
+            return result;
         }
         auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv6);
         if (auto res = ::connect(socketFd, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr))
-                ; res != 0 && failedResult(errno)) {
+                ; res < 0 && failedResult(errno)) {
             LOG_ERR("{}: failed to connect {}", __FUNCTION__, serverSocketAddr.mIpAddr.data());
-            return tl::unexpected(errno);
-        } else if (res != 0) {
-            LOG_INFO("{}: connect not done for {}", __FUNCTION__, serverSocketAddr.mIpAddr.data());
+            return result;
         }
         result.reset(new Socket(socketFd));
     }

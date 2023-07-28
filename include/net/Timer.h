@@ -1,8 +1,10 @@
 #pragma once
 #include "base/Utils.h"
-#include <cstdint>
 #include <memory>
 #include <string_view>
+#include <chrono>
+#include <concepts>
+#include <type_traits>
 
 namespace net {
 
@@ -23,13 +25,17 @@ public:
     [[nodiscard]]
     int getFd() const noexcept { return mFd; }
 
-    void setTimer(TimerType, uint32_t);
+    void setDelay(TimerType type, std::chrono::microseconds delay);
+
+    void setRepeating(TimerType type, std::chrono::microseconds interval);
 
     void resetTimer();
 
     void cancelTimer();
 
     void handleRead();
+
+    void handleError();
 
     [[nodiscard]]
     uint32_t getTimer() const;

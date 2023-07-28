@@ -37,6 +37,7 @@ TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxLi
         createNewConnection();
     });
 
+    // When error happen in listen socket, exit tcp server.
     mpListenChannel->setCloseCallback([&] {
         auto errCode = mpListenSocket->getSocketError();
         LOG_FATAL("{}: Error happen for server! Error code:{}, {}", __FUNCTION__
@@ -45,9 +46,19 @@ TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxLi
 
     mpListenChannel->setErrorCallback([&] {
         auto errCode = mpListenSocket->getSocketError();
-        LOG_ERR("{}: Error happen for server! Error code:{}, {}", __FUNCTION__
+        LOG_FATAL("{}: Error happen for server! Error code:{}, {}", __FUNCTION__
                 , errCode, gai_strerror(errCode));
     });
+
+    // When new connection is established, create new idenfication for TcpClient.
+    mIdentification = "";
+    mIdentification = fmt::format("{:016d}_{:05d}_{}_{}"
+        , std::chrono::steady_clock::now().time_since_epoch().count()
+        , gettid()
+        , mpListenSocket->getLocalAddr().mPort
+        , mpListenSocket->getLocalAddr().mIpAddr
+    );
+    LOG_INFO("{}: New Sever {}", __FUNCTION__, mIdentification);
     LOG_INFO("{} -", __FUNCTION__);
 }
 

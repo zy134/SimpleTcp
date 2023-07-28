@@ -29,7 +29,7 @@ TcpConnectionPtr TcpConnection::createTcpConnection(net::SocketPtr&& socket, net
 
 TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
         : mpEventLoop(loop), mpSocket(std::move(socket)), mState(TcpState::DisConnected) {
-    LOG_INFO("{}: start", __FUNCTION__);
+    LOG_INFO("{}: E", __FUNCTION__);
 
     mLocalAddr = mpSocket->getLocalAddr();
     mPeerAddr = mpSocket->getPeerAddr();
@@ -47,11 +47,17 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
     mpChannel->setCloseCallback([this] () {
         handleClose();
     });
-    LOG_INFO("{}: end", __FUNCTION__);
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 TcpConnection::~TcpConnection() noexcept {
-    LOG_INFO("{}", __FUNCTION__);
+    LOG_INFO("{}: E", __FUNCTION__);
+    if (mState == TcpState::Connected || mState == TcpState::HalfClosed) {
+        destroyConnection();
+        mState = TcpState::DisConnected;
+        LOG_INFO("{}: The connection is not shutdown, but dtor has invoked...", __FUNCTION__);
+    }
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 // Read data from socket to receive buffer
@@ -111,6 +117,7 @@ void TcpConnection::handleClose() {
         mConnectionCb(scopeGuard);
     }
     if (mCloseCb) {
+        // destroyConnection()
         mCloseCb(scopeGuard);
     }
 }
@@ -185,8 +192,12 @@ void TcpConnection::destroyConnection() noexcept {
     mpEventLoop->assertInLoopThread();
     try {
         // remove Channel from EventLoop
-        mpChannel->disableAll();
-        mpChannel = nullptr;
+        if (mpChannel) {
+            mpChannel->disableAll();
+            mpChannel = nullptr;
+        } else {
+            LOG_WARN("{}: destroy on a bad channel!", __FUNCTION__);
+        }
         // shutdown file descriptor
         mpSocket = nullptr;
     } catch (const std::exception& e) {

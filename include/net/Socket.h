@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <netdb.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 
 namespace net {
@@ -33,7 +34,7 @@ public:
     DISABLE_MOVE(Socket);
     ~Socket();
 
-    static SocketResult createTcpClientSocket(SocketAddr&& serverAddr);
+    static SocketPtr createTcpClientSocket(SocketAddr&& serverAddr);
 
     static SocketPtr createTcpListenSocket(SocketAddr&& serverAddr, int maxListenQueue);
     

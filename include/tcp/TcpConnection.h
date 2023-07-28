@@ -135,6 +135,8 @@ public:
 
     inline SocketAddr getPeerAddr() const noexcept { return mPeerAddr; }
 
+    void dumpSocketInfo() const noexcept { mpSocket->dumpSocketInfo(); }
+
 private:
     net::EventLoop*             mpEventLoop;
     net::SocketPtr              mpSocket;

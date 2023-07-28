@@ -15,6 +15,12 @@ using ChannelCbType = std::function<void ()>;
 // So Channel must add/remove to EventLoop itself when it has been create/delete
 class EventLoop;
 
+// Indicate the priority of event.
+enum ChannelPriority {
+    Normal,
+    High
+};
+
 // The Channl not hold the file descriptor, it just record it. So you need manage the lifetime
 // of file descriptor yourself!
 class Channel {
@@ -22,8 +28,8 @@ public:
     DISABLE_COPY(Channel);
     DISABLE_MOVE(Channel);
 
-    static auto createChannel(const int fd, EventLoop* loop) {
-        return std::unique_ptr<Channel>(new Channel(fd, loop));
+    static auto createChannel(const int fd, EventLoop* loop, ChannelPriority priority = ChannelPriority::Normal) {
+        return std::unique_ptr<Channel>(new Channel(fd, loop, priority));
     }
 
     ~Channel();
@@ -58,8 +64,11 @@ public:
 
     void setRevents(uint32_t revent) { mRevent = revent; }
 
+    [[nodiscard]]
+    auto getPriority() const noexcept { return mPriority; }
+
 private:
-    Channel(int fd, EventLoop* loop);
+    Channel(int fd, EventLoop* loop, ChannelPriority priority);
 
     ChannelCbType   mReadCb;
     ChannelCbType   mWriteCb;
@@ -71,7 +80,7 @@ private:
     uint32_t        mEvent;
     uint32_t        mRevent;
     int             mFd;
-
+    ChannelPriority mPriority;
 };
 
 using ChannelPtr = std::unique_ptr<Channel>;

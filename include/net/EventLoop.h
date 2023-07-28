@@ -1,6 +1,8 @@
 #pragma once
 #include "base/Utils.h"
+#include "net/TimerQueue.h"
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -71,7 +73,29 @@ public:
 
     void runInLoop(std::function<void()>&& cb);
 
-    void runAfter(std::function<void()>&&, uint32_t);
+    /**
+     * @brief runAfter : Start the task with a delay of duration ms.
+     *
+     * @param cb: 
+     * @param delay: The delay before task start. We use microseconds as the metric because
+     *                  the EventFd does not support latency with nanosecond accuracy
+     *
+     * @return : The identification of Timer.
+     */
+    TimerId runAfter(std::function<void()>&& cb, std::chrono::microseconds delay);
+
+    /**
+     * @brief runContinuous : Invoke the callback function every duration ms.
+     *
+     * @param cb: 
+     * @param interval: The delay before task start. We use microseconds as the metric because
+     *                  the EventFd does not support latency with nanosecond accuracy
+     *
+     * @return : The identification of Timer.
+     */
+    TimerId runEvery(std::function<void()>&& cb, std::chrono::microseconds interval);
+
+    void removeTimer(TimerId timerId);
 
     /**
      * @brief assertInLoopThread : In current thread is not same as the thread of loop, abort process.

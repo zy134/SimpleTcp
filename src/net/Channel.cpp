@@ -39,12 +39,12 @@ const auto CHANNEL_READ_EVENT = EPOLLIN | EPOLLPRI;
 const auto CHANNEL_WRITE_EVENT = EPOLLOUT;
 const auto CHANNEL_NONE_EVENT = 0;
 
-Channel::Channel(int fd, EventLoop* loop) {
+Channel::Channel(int fd, EventLoop* loop, ChannelPriority priority)
+    :mpEventLoop(loop), mFd(fd), mPriority(priority)
+{
     LOG_INFO("{}", __FUNCTION__);
-    loop->assertInLoopThread();
+    mpEventLoop->assertInLoopThread();
     assertTrue(fd >= 0, "[Channl] File descriptor must be valid!");
-
-    mFd = fd;
 
     [[unlikely]]
     if (auto res = fcntl(mFd, F_SETFL, O_NONBLOCK); res != 0) {
@@ -52,7 +52,6 @@ Channel::Channel(int fd, EventLoop* loop) {
     }
 
     mEvent = EPOLLERR;
-    mpEventLoop = loop;
 
     // set default callback
     mReadCb = [] {};

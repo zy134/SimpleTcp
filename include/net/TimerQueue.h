@@ -4,33 +4,50 @@
 #include "net/Timer.h"
 #include "net/Channel.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
 #include <functional>
+#include <mutex>
 
 namespace net {
 
 class EventLoop;
 
-// TODO: Not usable now!
+// Use timestamp of steady clock as the identification of Timer.
+using TimerId = uint64_t;
+inline constexpr TimerId INVALID_TIMER_ID = 0;
+
 class TimerQueue {
+private:
+    struct TimerStruct {
+        std::shared_ptr<Timer> timer;
+        std::shared_ptr<Channel> channel;
+    };
+
+    using TimerChannelMap = std::unordered_map<TimerId, TimerStruct>;
+
 public:
-    //DISABLE_COPY(TimerQueue);
-    //DISABLE_MOVE(TimerQueue);
+    DISABLE_COPY(TimerQueue);
+    DISABLE_MOVE(TimerQueue);
     ~TimerQueue();
-    using TimerChannelMap = std::unordered_map<std::shared_ptr<Timer>, std::shared_ptr<Channel>>;
     using TimerCallback = std::function<void ()>;
 
-    static std::unique_ptr<TimerQueue> createTimerQueue(EventLoop* loop);
+    static std::unique_ptr<TimerQueue> createTimerQueue(EventLoop* loop) {
+        return std::unique_ptr<TimerQueue>(new TimerQueue(loop));
+    }
 
-    // Not thread safety.
-    void addTimer(TimerCallback&&, TimerType, uint32_t);
+    TimerId addOneshotTimer(TimerCallback&&, TimerType, std::chrono::microseconds);
+
+    TimerId addRepeatingTimer(TimerCallback&&, TimerType, std::chrono::microseconds);
+
+    void removeTimer(TimerId timerId);
 
 private:
     TimerQueue(EventLoop* loop);
-    void removeTimer(int fd);
 
+    std::mutex          mMutex;
     net::EventLoop*     mpEventloop;
     TimerChannelMap     mTimerMap;
 };

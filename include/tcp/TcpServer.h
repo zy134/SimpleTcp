@@ -46,10 +46,17 @@ public:
      */
     void setWriteCompleteCallback(TcpWriteCompleteCallback&& cb) noexcept;
 
+    [[nodiscard]]
+    std::string_view getId() const noexcept { return mIdentification; }
+
 private:
     net::EventLoop*     mpEventLoop;
     net::SocketPtr      mpListenSocket;
     net::ChannelPtr     mpListenChannel;
+
+    // The idenfication of server port.
+    // Id is a string like: [timestamp_tid_port_ip]
+    std::string         mIdentification;
 
     std::unordered_set<net::tcp::TcpConnectionPtr> mConnectionSet;
     static constexpr auto MAX_CONNECTION_NUMS = 256;

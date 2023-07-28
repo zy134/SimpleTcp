@@ -3,6 +3,7 @@
 #include "base/Backtrace.h"
 #include "net/Channel.h"
 #include "net/Epoller.h"
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdint>
@@ -117,6 +118,15 @@ auto Epoller::poll() -> std::vector<Channel *> {
         LOG_INFO("{}: fd {}, result event {}"
                 , __FUNCTION__, channel->getFd(), static_cast<uint32_t>(rEventArray[i].events));
         result.push_back(channel);
+    }
+    if (result.size() > 1) {
+        std::sort(result.begin(), result.end(), [] (auto&& left, auto&& right) {
+            // Sort active channels by priority.
+            if (left->getPriority() > right->getPriority()) {
+                return true;
+            }
+            return false;
+        });
     }
     LOG_INFO("{}: -", __FUNCTION__);
     return result;

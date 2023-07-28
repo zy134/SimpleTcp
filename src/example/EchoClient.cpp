@@ -35,16 +35,6 @@ const SocketAddr serverAddr {
 
 TcpConnectionPtr clientConn;
 
-static void onConnection(const TcpConnectionPtr& conn) {
-    if (conn->isConnected()) {
-        LOG_INFO("Connection success!");
-        clientConn = conn;
-    } else {
-        LOG_INFO("Disconnected!");
-        clientConn = nullptr;
-    }
-}
-
 static void onMessage(const TcpConnectionPtr& conn, TcpBuffer& buffer) {
     auto message = buffer.extract(buffer.size());
     std::cout << "From server:[" << message << "]" << std::endl;
@@ -54,7 +44,14 @@ int main() try {
     // create loop
     EventLoop loop;
     TcpClient client(&loop, serverAddr);
-    client.setConnectionCallback(onConnection);
+    client.setConnectionCallback([&] (const TcpConnectionPtr& conn) {
+        if (conn->isConnected()) {
+            std::cout << "[EchoClient] Connection [" << client.getId() << "] is build!" << std::endl;
+            clientConn = conn;
+        } else {
+            std::cout << "[EchoClient] Connection [" << client.getId() << "] is destroy!" << std::endl;
+        }
+    });
     client.setMessageCallback(onMessage);
     client.connect();
     LOG_INFO("start server");

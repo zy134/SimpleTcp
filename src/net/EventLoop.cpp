@@ -9,6 +9,7 @@
 #include "net/TimerQueue.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <ctime>
 #include <functional>
@@ -61,9 +62,7 @@ EventLoop::EventLoop() {
 
     try {
         mpPoller = Epoller::createEpoller();
-        // TODO:
-        // disable now
-        // mpTimerQueue = TimerQueue::createTimerQueue(this);
+        mpTimerQueue = TimerQueue::createTimerQueue(this);
         mpWakeupFd = EventFd::createEventFd();
         mpWakeupChannel = Channel::createChannel(mpWakeupFd->getFd(), this);
         mpWakeupChannel->setReadCallback([&] {
@@ -161,10 +160,10 @@ void EventLoop::quitLoop() {
 
 void EventLoop::queueInLoop(std::function<void ()>&& cb) {
     if (isInLoopThread()) {
-        mPendingTasks.push_back(std::move(cb));
+        mPendingTasks.emplace_back(std::move(cb));
     } else {
         std::lock_guard lock { mMutex };
-        mPendingTasks.push_back(std::move(cb));
+        mPendingTasks.emplace_back(std::move(cb));
     }
     if (!isInLoopThread() || mIsDoPendingWorks) {
         wakeup();
@@ -179,19 +178,22 @@ void EventLoop::runInLoop(std::function<void ()>&& cb) {
     }
 }
 
-void EventLoop::runAfter(std::function<void ()>&& cb, uint32_t microseconds) {
-    auto runAfterUnlock = [&] {
-        try {
-            mpTimerQueue->addTimer(std::move(cb), TimerType::Relative, microseconds);
-        } catch (SystemException& e) {
-            printBacktrace();
-            LOG_ERR("System Exception {}", e.what());
-        } catch (...) {
-            printBacktrace();
-            throw ;
-        }
-    };
-    runInLoop(std::move(runAfterUnlock));
+TimerId EventLoop::runAfter(std::function<void ()>&& cb, std::chrono::microseconds delay) {
+    LOG_DEBUG("{} E", __FUNCTION__);
+    return mpTimerQueue->addOneshotTimer(std::move(cb), TimerType::Relative, delay);
+    LOG_DEBUG("{} X", __FUNCTION__);
+}
+
+TimerId EventLoop::runEvery(std::function<void ()>&& cb, std::chrono::microseconds interval) {
+    LOG_DEBUG("{} E", __FUNCTION__);
+    return mpTimerQueue->addRepeatingTimer(std::move(cb), TimerType::Relative, interval);
+    LOG_DEBUG("{} X", __FUNCTION__);
+}
+
+void EventLoop::removeTimer(TimerId timerId) {
+    LOG_DEBUG("{} E", __FUNCTION__);
+    mpTimerQueue->removeTimer(timerId);
+    LOG_DEBUG("{} X", __FUNCTION__);
 }
 
 bool EventLoop::isInLoopThread() {
@@ -214,7 +216,7 @@ void EventLoop::wakeup() {
 
 // TODO : Use thread-pool to complete pending tasks.
 void EventLoop::doPendingTasks() {
-    LOG_DEBUG("{} +", __FUNCTION__);
+    LOG_DEBUG("{} E", __FUNCTION__);
     std::vector<std::function<void ()>> pendingTasks;
     {
         std::lock_guard lock { mMutex };
@@ -226,7 +228,7 @@ void EventLoop::doPendingTasks() {
         task();
     }
     mIsDoPendingWorks = false;
-    LOG_DEBUG("{} -", __FUNCTION__);
+    LOG_DEBUG("{} X", __FUNCTION__);
 }
 
 } // namespace net

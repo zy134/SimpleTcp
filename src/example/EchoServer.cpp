@@ -1,6 +1,7 @@
 #include "base/Log.h"
 #include "net/EventLoop.h"
 #include "net/Socket.h"
+#include "net/TimerQueue.h"
 #include "tcp/TcpBuffer.h"
 #include "tcp/TcpConnection.h"
 #include "tcp/TcpServer.h"
@@ -16,7 +17,7 @@ using namespace utils;
 using namespace std;
 using namespace net;
 using namespace net::tcp;
-
+using namespace std::chrono_literals;
 
 const SocketAddr serverAddr {
     .mIpAddr = "127.0.0.0",
@@ -28,11 +29,20 @@ constexpr auto MAX_LISTEN_QUEUE = 100;
 
 EventLoop loop;
 
+TimerId timer = 0;
+
 static void onConnection(const TcpConnectionPtr& conn) {
     if (conn->isConnected()) {
         LOG_INFO("{}: connected!", __FUNCTION__);
     } else {
         LOG_INFO("{}: disconnected!", __FUNCTION__);
+    }
+    if (conn->isConnected()) {
+        timer = loop.runEvery([] {
+            LOG_INFO("Test Timer");
+        }, 3s);
+    } else {
+        loop.removeTimer(timer);
     }
 }
 
@@ -40,10 +50,10 @@ static void onMessage(const TcpConnectionPtr& conn, TcpBuffer& buffer) {
     auto message = buffer.extract(buffer.size());
     std::cerr << "read from client [" << message << "]" << std::endl;
     conn->send(message);
+    conn->dumpSocketInfo();
 }
 
 int main() try {
-    // create loop
     TcpServer server(&loop, serverAddr, MAX_LISTEN_QUEUE);
     server.setConnectionCallback(onConnection);
     server.setMessageCallback(onMessage);
