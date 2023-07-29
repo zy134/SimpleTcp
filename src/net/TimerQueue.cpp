@@ -34,7 +34,7 @@ TimerId TimerQueue::addOneshotTimer(TimerCallback&& cb, TimerType type, std::chr
     try {
         std::shared_ptr<Timer> newTimer = net::Timer::createTimer();
         newTimer->setDelay(type, delay);
-        auto newId = std::chrono::steady_clock::now().time_since_epoch().count();
+        TimerId newId = std::chrono::steady_clock::now().time_since_epoch().count();
         LOG_INFO("{}: create new timer :{}", __FUNCTION__, newId);
         // Pass the copy of newTimer to lambda.
         mpEventloop->queueInLoop([this, newTimer, newId, cb = std::move(cb)] () mutable {
@@ -72,7 +72,7 @@ TimerId TimerQueue::addRepeatingTimer(TimerCallback&& cb, TimerType type, std::c
     try {
         std::shared_ptr<Timer> newTimer = net::Timer::createTimer();
         newTimer->setRepeating(type, interval);
-        auto newId = std::chrono::steady_clock::now().time_since_epoch().count();
+        TimerId newId = std::chrono::steady_clock::now().time_since_epoch().count();
         LOG_INFO("{}: create new timer :{}", __FUNCTION__, newId);
         // Pass the copy of newTimer to lambda.
         mpEventloop->queueInLoop([this, newTimer, newId, cb = std::move(cb)] () mutable {
@@ -109,18 +109,18 @@ void TimerQueue::removeTimer(TimerId timerId) {
     LOG_INFO("{}: remove timer :{}", __FUNCTION__, timerId);
     mpEventloop->queueInLoop([this, timerId] {
         std::lock_guard lock { mMutex };
-        auto iter = std::find_if(mTimerMap.begin(), mTimerMap.end(), [timerId] (const auto& iter) {
+        auto timerIter = std::find_if(mTimerMap.begin(), mTimerMap.end(), [timerId] (const auto& iter) {
             return iter.first == timerId;
         });
-        if (iter == mTimerMap.end()) {
+        if (timerIter == mTimerMap.end()) {
             LOG_ERR("{}: timer has not been register!", __FUNCTION__);
             return ;
         }
         // First, release Channel
-        iter->second.channel = nullptr;
+        timerIter->second.channel = nullptr;
         // and then release FileDesc
-        iter->second.timer = nullptr;
-        mTimerMap.erase(iter->first);
+        timerIter->second.timer = nullptr;
+        mTimerMap.erase(timerIter->first);
     });
 }
 

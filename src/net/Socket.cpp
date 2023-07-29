@@ -1,5 +1,4 @@
 #include "base/Error.h"
-#include "base/Expected.h"
 #include "base/Utils.h"
 #include "base/Log.h"
 #include "net/Socket.h"
@@ -66,7 +65,7 @@ inline static std::string transAddrToString(const sockaddr_in6& addr) {
     auto start = addr.sin6_addr.s6_addr;
     constexpr auto maxLen = sizeof(addr.sin6_addr);
     for (int i = 0; i != maxLen; ++i) {
-        result.push_back(start[i]);
+        result.push_back(static_cast<char>(start[i]));
         if (((i + 1) % 4) == 0) {
             result.append("::");
         }
@@ -175,7 +174,7 @@ void Socket::listen() {
     setLocalAddr(mLocalAddr.mIpProtocol);
 }
 
-SocketResult Socket::accept() {
+SocketPtr Socket::accept() {
     LOG_INFO("{}: start", __FUNCTION__);
     // Accept connection.
     assertTrue(mIsListenSocket, "[Socket] accept just can be invoked by listen socket!");
@@ -187,7 +186,7 @@ SocketResult Socket::accept() {
             , SOCK_CLOEXEC | SOCK_NONBLOCK);
     if (connectedFd < 0) {
         LOG_ERR("{}: failed to accept, {}", __FUNCTION__, gai_strerror(errno));
-        return tl::unexpected(errno);
+        throw utils::NetworkException("[Socket] accept failed.", errno);
     }
 
     // Translate IP address.

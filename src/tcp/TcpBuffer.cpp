@@ -35,14 +35,14 @@ TcpBuffer::TcpBuffer() :mReadPos(0), mWritePos(0) {
  */
 void TcpBuffer::readFromSocket(const SocketPtr &socket) {
     auto res = ::read(socket->getFd(), getWritePos(), writablebytes());
-    if (res == writablebytes()) {
+    if (res > 0 && (SizeType)res == writablebytes()) {
         // Don't write again. Make write availble in next loop.
-        mWritePos += res;
+        mWritePos += static_cast<SizeType>(res);
         mBuffer.resize(mBuffer.size() * 2);
     } else if (res > 0) {
-        mWritePos += res;
+        mWritePos += static_cast<SizeType>(res);
     } else {
-        throw NetworkException("[TcpBuffer] write error.", res);
+        throw NetworkException("[TcpBuffer] write error.", errno);
     }
     LOG_DEBUG("{}: read bytes: {}, readablebytes {}, writablebytes {}", __FUNCTION__
             , res, readablebytes(), writablebytes());
@@ -72,9 +72,9 @@ void TcpBuffer::writeToSocket(const SocketPtr &socket) {
     if (res > 0) {
         LOG_DEBUG("{}: write done, write bytes: {}", __FUNCTION__, res);
         // Don't write again. Make write availble in next loop.
-        updateReadPos(res);
+        updateReadPos(static_cast<SizeType>(res));
     } else {
-        throw NetworkException("[TcpBuffer] write error.", res);
+        throw NetworkException("[TcpBuffer] write error.", errno);
     }
 }
 
@@ -88,7 +88,7 @@ void TcpBuffer::appendToBuffer(std::string_view message) {
     LOG_DEBUG("{}: end, message size:%zu, current buffer size:%zu", __FUNCTION__, message.size(), mBuffer.size());
 }
 
-std::string TcpBuffer::read(size_t size) noexcept {
+std::string TcpBuffer::read(SizeType size) noexcept {
     std::string result;
     if (size < readablebytes()) {
         result.resize(size);
@@ -107,7 +107,7 @@ std::string TcpBuffer::readAll() noexcept {
     return result;
 }
 
-std::string TcpBuffer::extract(size_t size) noexcept {
+std::string TcpBuffer::extract(SizeType size) noexcept {
     std::string result;
     if (size < readablebytes()) {
         result.resize(size);
@@ -121,7 +121,7 @@ std::string TcpBuffer::extract(size_t size) noexcept {
 }
 
 
-void TcpBuffer::updateReadPos(size_t len) noexcept {
+void TcpBuffer::updateReadPos(SizeType len) noexcept {
     assertTrue((mReadPos + len) <= mWritePos, "[TcpBuffer] the fomula (mReadPos + len <= mWritePos) dosn't hold!");
     mReadPos += len;
     if (mReadPos > readablebytes()) {

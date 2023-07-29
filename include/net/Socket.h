@@ -1,7 +1,6 @@
 #pragma once
 
 #include "base/Utils.h"
-#include "base/Expected.h"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -19,7 +18,7 @@ enum class IP_PROTOCOL {
 struct SocketAddr {
     std::string mIpAddr;
     IP_PROTOCOL mIpProtocol;
-    uint32_t    mPort;
+    uint16_t    mPort;
 };
 
 
@@ -29,7 +28,6 @@ struct SocketAddr {
 class Socket final {
 public:
     using SocketPtr = std::unique_ptr<Socket>;
-    using SocketResult = tl::expected<std::unique_ptr<Socket>, int>;
     DISABLE_COPY(Socket);
     DISABLE_MOVE(Socket);
     ~Socket();
@@ -37,17 +35,17 @@ public:
     static SocketPtr createTcpClientSocket(SocketAddr&& serverAddr);
 
     static SocketPtr createTcpListenSocket(SocketAddr&& serverAddr, int maxListenQueue);
-    
+
     void listen();
 
-    SocketResult accept();
+    SocketPtr accept();
 
     void shutdown();
 
     void setNonDelay(bool enable);
-    
+
     void setNonBlock(bool enable);
-    
+
     void setKeepAlive(bool enable);
 
     void setReuseAddr(bool enable);
@@ -58,16 +56,16 @@ public:
     int getFd() const noexcept { return mFd; }
 
     [[nodiscard]]
-    IP_PROTOCOL getIpProtocol() const noexcept { return mLocalAddr.mIpProtocol; }
+    auto getIpProtocol() const noexcept { return mLocalAddr.mIpProtocol; }
 
     [[nodiscard]]
-    uint32_t getPort() const noexcept { return mLocalAddr.mPort; }
+    auto getPort() const noexcept { return mLocalAddr.mPort; }
 
     [[nodiscard]]
-    SocketAddr getLocalAddr() const noexcept { return mLocalAddr; }
+    auto getLocalAddr() const noexcept { return mLocalAddr; }
 
     [[nodiscard]]
-    SocketAddr getPeerAddr() const noexcept { return mPeerAddr; }
+    auto getPeerAddr() const noexcept { return mPeerAddr; }
 
     [[nodiscard]]
     int getSocketError() const noexcept;
@@ -92,8 +90,6 @@ private:
 
 
 using SocketPtr = Socket::SocketPtr;
-
-using SocketResult = Socket::SocketResult;
 
 inline auto operator<=>(const SocketPtr& lhs, const int fd) noexcept {
     return lhs->getFd()<=>fd;

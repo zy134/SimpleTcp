@@ -35,7 +35,7 @@ const SocketAddr serverAddr {
 
 TcpConnectionPtr clientConn;
 
-static void onMessage(const TcpConnectionPtr& conn, TcpBuffer& buffer) {
+static void onMessage(const TcpConnectionPtr&, TcpBuffer& buffer) {
     auto message = buffer.extract(buffer.size());
     std::cout << "From server:[" << message << "]" << std::endl;
 }
@@ -49,6 +49,7 @@ int main() try {
             std::cout << "[EchoClient] Connection [" << client.getId() << "] is build!" << std::endl;
             clientConn = conn;
         } else {
+            clientConn = nullptr;
             std::cout << "[EchoClient] Connection [" << client.getId() << "] is destroy!" << std::endl;
         }
     });

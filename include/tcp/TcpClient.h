@@ -97,12 +97,8 @@ private:
 
     void doForceDisconnected();
 
-    // Connection callback.
-    // void onConnError();
-
-    // void onConnWrite();
-
-    // void onConnClose();
+    // Help function for retry connection, it would throw exception when retry timeout.
+    void retry();
 
     net::EventLoop*     mpEventLoop;
     SocketAddr          mServerAddr;
@@ -113,7 +109,8 @@ private:
     // Temporary variant use for connecting to remote.
     SocketPtr           mConnSocket;
     ChannelPtr          mConnChannel;
-    std::chrono::milliseconds   mConnTimeout;
+    std::chrono::milliseconds   mConnRetryDelay;
+    std::chrono::milliseconds   mConnRandomDelay;
     static constexpr auto TCP_MAX_RETRY_TIMEOUT = std::chrono::minutes(5);
     static constexpr auto TCP_INIT_RETRY_TIMEOUT = std::chrono::milliseconds(100);
 

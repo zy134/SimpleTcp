@@ -1,6 +1,7 @@
 #pragma once
 #include "base/Utils.h"
 #include <memory>
+#include <ratio>
 #include <string_view>
 #include <chrono>
 #include <concepts>
@@ -38,12 +39,13 @@ public:
     void handleError();
 
     [[nodiscard]]
-    uint32_t getTimer() const;
+    std::chrono::microseconds getTimer() const;
 
 private:
-    Timer(int fd) : mFd(fd) {};
+    Timer(int fd) : mFd(fd), mIsRepeating(false) {};
 
     int mFd;
+    bool mIsRepeating;
 };
 
 using TimerPtr = Timer::TimerPtr;

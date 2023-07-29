@@ -5,6 +5,8 @@
 #include "tcp/TcpConnection.h"
 #include "base/Utils.h"
 #include "base/Log.h"
+#include "base/Error.h"
+#include <exception>
 #include <string_view>
 
 extern "C" {
@@ -94,17 +96,21 @@ void TcpServer::setWriteCompleteCallback(TcpWriteCompleteCallback &&cb) noexcept
 void TcpServer::createNewConnection() {
     LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
-    auto clientSocket = mpListenSocket->accept();
-    if (!clientSocket) {
-        LOG_ERR("{}: accept error {}", __FUNCTION__, gai_strerror(clientSocket.error()));
-        return ;
+    SocketPtr clientSocket;
+    try {
+        clientSocket = mpListenSocket->accept();
+    } catch (const utils::NetworkException& e) {
+        LOG_ERR("{}: Ignore exception: {}", e.what());
+    } catch (const std::exception& e) {
+        LOG_ERR("{}: {}", e.what());
+        throw;
     }
     if (mConnectionSet.size() == MAX_CONNECTION_NUMS) {
         LOG_ERR("{}: refuse connect because connection set is full.", __FUNCTION__);
         return ;
     }
-    clientSocket.value()->dumpSocketInfo();
-    auto newConn = TcpConnection::createTcpConnection(std::move(clientSocket.value()), mpEventLoop);
+    clientSocket->dumpSocketInfo();
+    auto newConn = TcpConnection::createTcpConnection(std::move(clientSocket), mpEventLoop);
 
     // Copy user callback function to new connection.
     newConn->setConnectionCallback(mConnectionCb);

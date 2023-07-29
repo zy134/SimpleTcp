@@ -55,6 +55,9 @@ class LogBuffer {
     DISABLE_MOVE(LogBuffer);
 
 public:
+    using BufferType = std::array<char, LOG_BUFFER_SIZE>;
+    using SizeType = BufferType::size_type;
+
     LogBuffer() {
         mUsedSize = 0;
     }
@@ -78,7 +81,7 @@ public:
     }
 
     void flush(std::fstream &fileStream) {
-        fileStream.write(mRawBuffer.data(), mUsedSize);
+        fileStream.write(mRawBuffer.data(), static_cast<std::streamsize>(mUsedSize));
         fileStream.flush();
         mUsedSize = 0;
     }
@@ -124,7 +127,7 @@ private:
     static constexpr auto DEFAULT_FLUSH_INTERVAL = 2000ms;
 
     std::fstream            mLogFileStream;
-    uint32_t                mLogAlreadyWritenBytes;
+    LogBuffer::SizeType     mLogAlreadyWritenBytes;
 
     std::mutex              mMutex;
     std::condition_variable mCond;
@@ -192,8 +195,8 @@ void LogServer::write(LogLevel level, std::string_view fmt, std::string_view tag
 #else
     #error "Not support platform!"
 #endif
-    constexpr auto log_level_to_string= [] (LogLevel level) {
-        switch (level) {
+    constexpr auto log_level_to_string= [] (LogLevel l) {
+        switch (l) {
             case LogLevel::Version:
                 return "Ver  ";
             case LogLevel::Debug:

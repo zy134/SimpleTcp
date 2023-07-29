@@ -25,6 +25,8 @@ public:
     DISABLE_MOVE(TcpBuffer);
     TcpBuffer();
     ~TcpBuffer() = default;
+    using BufferType = std::vector<char>;
+    using SizeType = BufferType::size_type;
 
     // Read data from socket to TcpBuffer.
     // This operation may block.
@@ -42,30 +44,30 @@ public:
 
     // Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
     // The size of result string may less then input size, please check it!
-    std::string read(size_t size) noexcept;
+    std::string read(SizeType size) noexcept;
 
     // Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
     // The size of result string may less then input size, please check it!
     std::string readAll() noexcept;
-    
+
     // Return a string which read from TcpBuffer, and extract data from TcpBuffer.
     // The size of result string may less then input size, please check it!
-    std::string extract(size_t size) noexcept;
+    std::string extract(SizeType size) noexcept;
 
     // Return counts of bytes stored in buffer.
     [[nodiscard]]
-    size_t size() const noexcept { return readablebytes(); }
+    SizeType size() const noexcept { return readablebytes(); }
 
     [[nodiscard]]
     bool isReading() const noexcept;
 
     [[nodiscard]]
     bool isWriting() const noexcept;
-    
+
 private:
-    std::vector<char> mBuffer;
-    uint32_t mReadPos;
-    uint32_t mWritePos;
+    BufferType mBuffer;
+    SizeType mReadPos;
+    SizeType mWritePos;
 
     [[nodiscard]]
     char* getWritePos() noexcept { return mBuffer.data() + mWritePos; }
@@ -74,10 +76,10 @@ private:
     char* getReadPos() noexcept { return mBuffer.data() + mReadPos; }
 
     [[nodiscard]]
-    uint32_t writablebytes() const noexcept { return mBuffer.size() - mWritePos; }
+    SizeType writablebytes() const noexcept { return mBuffer.size() - mWritePos; }
 
     [[nodiscard]]
-    uint32_t readablebytes() const noexcept { return mWritePos - mReadPos; }
+    SizeType readablebytes() const noexcept { return mWritePos - mReadPos; }
 
     /*
      * Before shrink:
@@ -102,7 +104,7 @@ private:
      *  |                  |                                          |
      * mReadPos          mWritePos                                  last
      */
-    void updateReadPos(size_t len) noexcept;
+    void updateReadPos(SizeType len) noexcept;
 
 };
 

@@ -31,17 +31,19 @@ TCP_MODULE  := $(BUILD_PATH)/lib/libMyTcp.a
 
 # ==============================================================================
 # Set compile command and compile flags.
-CC       := clang
-CXX      := clang++
+CC       := gcc
+CXX      := g++
 CFLAGS   :=
 CPPFLAGS :=
 
 ifeq ($(CXX),clang++)
     CPPFLAGS := -std=c++20 -DDEFAULT_LOG_PATH=\"$(LOG_PATH)\" --include-directory=$(INCLUDE_PATH) \
-                -pthread -Wall -Wno-c++2b-extensions -Werror
+                -pthread -Wall -Wno-c++2b-extensions -Werror \
+                -Wextra -Wconversion -Wshadow
 else ifeq ($(CXX),g++)
     CPPFLAGS := -std=c++20 -DDEFAULT_LOG_PATH=\"$(LOG_PATH)\" --include-directory=$(INCLUDE_PATH) \
-                -pthread -Wall -Werror
+                -pthread -Wall -Werror \
+                -Wextra -Wconversion -Wshadow
 endif
 
 # compile flag for debug version
@@ -78,6 +80,8 @@ LINKFLAGS += $(TCP_MODULE) -lfmt
 .PHONY: all config clean
 all: $(EXAMPLE_OBJS)
 
+START_TIME := $(shell cat /proc/uptime | awk -F "." '{print $$1}')
+
 config: clean
 	@ echo "=========================== start config ============================"
 	mkdir $(BUILD_PATH)
@@ -105,33 +109,46 @@ config: clean
 
 
 $(BASE_OBJS): $(BASE_SOURCE_FILES)
-	@ echo "[Compile] build target: $(notdir $@)"
-	@ cd $(BUILD_PATH)/base && $(CXX) $(CPPFLAGS) -c $^
+	@ current_time=`date +"%x %X:%3N"`;\
+		echo "[$${current_time}][Compile] build target: $(notdir $@)";\
+		cd $(BUILD_PATH)/base;\
+		$(CXX) $(CPPFLAGS) -c $^
 
 $(NET_OBJS): $(NET_SOURCE_FILES)
-	@ echo "[Compile] build target: $(notdir $@)"
-	@ cd $(BUILD_PATH)/net && $(CXX) $(CPPFLAGS) -c $^
+	@ current_time=`date +"%x %X:%3N"`;\
+		echo "[$${current_time}][Compile] build target: $(notdir $@)";\
+		cd $(BUILD_PATH)/net;\
+		$(CXX) $(CPPFLAGS) -c $^
 
 $(TCP_OBJS): $(TCP_SOURCE_FILES)
-	@ echo "[Compile] build target: $(notdir $@)"
-	@ cd $(BUILD_PATH)/tcp && $(CXX) $(CPPFLAGS) -c $^
+	@ current_time=`date +"%x %X:%3N"`;\
+		echo "[$${current_time}][Compile] build target: $(notdir $@)";\
+		cd $(BUILD_PATH)/tcp;\
+		$(CXX) $(CPPFLAGS) -c $^
 
 $(TCP_MODULE): $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS)
-	@ echo "[ar     ] archive static library: $(notdir $@)"
-	@ cd $(BUILD_PATH) && ar rcs libMyTcp.a $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS) && mv libMyTcp.a $(BUILD_PATH)/lib
+	@ current_time=`date +"%x %X:%3N"`;\
+		echo "[$${current_time}][Compile] build target: $(notdir $@)";\
+		cd $(BUILD_PATH);\
+		ar rcs libMyTcp.a $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS) && mv libMyTcp.a $(BUILD_PATH)/lib
+	@ current_time=`date +"%x %X:%3N"`;\
+		END_TIME=`cat /proc/uptime | awk -F "." '{print $$1}'`; \
+		time_interval=`expr $${END_TIME} - $(START_TIME)`; \
+		runtime=`date -u -d @$${time_interval} +%Hh:%Mm:%Ss`; \
+		echo "[$${current_time}][runtime] success build library, total run time: $${runtime}"
 
 library: $(TCP_MODULE)
 
 $(EXAMPLE_OBJS): $(EXAMPLE_SOURCE_FILES) $(TCP_MODULE)
-	@ echo "[link   ] build example object: $(notdir $@)"
-	@ cd $(BUILD_PATH)/example && \
-		$(CXX) $(CPPFLAGS) $(SOURCE_PATH)/example/ChatServer.cpp $(LINKFLAGS) -o $(BUILD_PATH)/example/ChatServer
-	@ cd $(BUILD_PATH)/example && \
-		$(CXX) $(CPPFLAGS) $(SOURCE_PATH)/example/ChatClient.cpp $(LINKFLAGS) -o $(BUILD_PATH)/example/ChatClient
-	@ cd $(BUILD_PATH)/example && \
-		$(CXX) $(CPPFLAGS) $(SOURCE_PATH)/example/EchoServer.cpp $(LINKFLAGS) -o $(BUILD_PATH)/example/EchoServer
-	@ cd $(BUILD_PATH)/example && \
-		$(CXX) $(CPPFLAGS) $(SOURCE_PATH)/example/EchoClient.cpp $(LINKFLAGS) -o $(BUILD_PATH)/example/EchoClient
+	@ current_time=`date +"%x %X:%3N"`;\
+		echo "[$${current_time}][link   ] build example object: $(notdir $@)";\
+		cd $(BUILD_PATH)/example; \
+		$(CXX) $(CPPFLAGS) $(SOURCE_PATH)/example/$(notdir $@).cpp $(LINKFLAGS) -o $(BUILD_PATH)/example/$(notdir $@); \
+		current_time=`date +"%x %X:%3N"`;\
+		END_TIME=`cat /proc/uptime | awk -F "." '{print $$1}'`; \
+		time_interval=`expr $${END_TIME} - $(START_TIME)`; \
+		runtime=`date -u -d @$${time_interval} +%Hh:%Mm:%Ss`; \
+		echo "[$${current_time}][runtime] success build example, total run time: $${runtime}"
 
 clean:
 	@ echo "=============================== Clean ==============================="

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <netdb.h>
 #include <vector>
@@ -34,7 +35,7 @@ namespace net {
 constexpr auto EPOLL_MAX_WAIT_NUM = 256;
 constexpr auto EPOLL_MAX_WAIT_TIMEOUT = 1000;
 
-std::string static transEventToStr(int event) {
+std::string static transEventToStr(uint32_t event) {
     std::string result;
     if (event & EPOLLIN) { result.append("IN "); }
     if (event & EPOLLOUT) { result.append("OUT "); }
@@ -111,7 +112,7 @@ auto Epoller::poll() -> std::vector<Channel *> {
         throw SystemException("poll failed.");
     }
 
-    for (auto i = 0; i != count; ++i) {
+    for (size_t i = 0; i != static_cast<size_t>(count); ++i) {
         assertTrue(mChannelMap.count(rEventArray[i].data.fd) != 0, "poll : fd not existed.");
         auto* channel = mChannelMap[rEventArray[i].data.fd];
         channel->setRevents(rEventArray[i].events);
@@ -122,10 +123,7 @@ auto Epoller::poll() -> std::vector<Channel *> {
     if (result.size() > 1) {
         std::sort(result.begin(), result.end(), [] (auto&& left, auto&& right) {
             // Sort active channels by priority.
-            if (left->getPriority() > right->getPriority()) {
-                return true;
-            }
-            return false;
+            return (left->getPriority() > right->getPriority());
         });
     }
     LOG_INFO("{}: -", __FUNCTION__);

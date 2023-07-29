@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <fmt/format.h>
 #include <mutex>
@@ -36,10 +38,16 @@ namespace net::tcp {
 
 TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr)
     : mpEventLoop(loop), mServerAddr(std::move(serverAddr))
-      , mState(ClientState::Disconnect), mConnTimeout(TCP_INIT_RETRY_TIMEOUT), mIdentification(UNKNOWN_CLIENT_ID)
+      , mState(ClientState::Disconnect), mConnRetryDelay(TCP_INIT_RETRY_TIMEOUT), mIdentification(UNKNOWN_CLIENT_ID)
 {
     LOG_INFO("{}: E", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
+
+    // Every client has a random delay prefix.
+    std::default_random_engine e(chrono::system_clock::now().time_since_epoch().count());
+    std::uniform_int_distribution<uint32_t> u { 0, 500 };
+    mConnRandomDelay = chrono::milliseconds{ u(e) };
+
     LOG_INFO("{}: X", __FUNCTION__);
 }
 
@@ -92,7 +100,7 @@ void TcpClient::transStateInLoop(ClientState newState) {
                 break;
             }
             if (oldState == ClientState::Connecting) {
-                LOG_DEBUG("{}: retry connect, timeout: {}ms", __FUNCTION__, mConnTimeout.count());
+                LOG_DEBUG("{}: retry connect, timeout: {}ms", __FUNCTION__, mConnRetryDelay.count());
             }
             mState = newState;
             doConnecting();
@@ -124,14 +132,7 @@ void TcpClient::doConnecting() {
     // Get non-block socket.
     mConnSocket = Socket::createTcpClientSocket(std::move(serverAddr));
     if (mConnSocket == nullptr) {
-        if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
-            mpEventLoop->runAfter([this] {
-                transStateInLoop(ClientState::Connecting);
-            }, mConnTimeout);
-            mConnTimeout *= 2;
-        } else {
-            throw NetworkException("[TcpClient] Connect time out!", errno);
-        }
+        retry();
         LOG_INFO("{}: X", __FUNCTION__);
         return ;
     }
@@ -145,17 +146,10 @@ void TcpClient::doConnecting() {
         LOG_INFO("{} : connect in progress.", __FUNCTION__);
         mConnChannel = Channel::createChannel(mConnSocket->getFd(), mpEventLoop);
         mConnChannel->setErrorCallback([this] {
-            auto errCode = mConnSocket->getSocketError();
-            LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, errCode, strerror(errCode));
+            auto err = mConnSocket->getSocketError();
+            LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, err, strerror(err));
             // If connect failed, retry.
-            if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
-                mpEventLoop->runAfter([this] {
-                    transStateInLoop(ClientState::Connecting);
-                }, mConnTimeout);
-                mConnTimeout *= 2;
-            } else {
-                throw NetworkException("[TcpClient] Connect time out!", errno);
-            }
+            retry();
         });
         mConnChannel->setWriteCallback([this] {
             // TODO:
@@ -168,19 +162,13 @@ void TcpClient::doConnecting() {
         mConnChannel->enableWrite();
     } else if (errCode == 0) {
         // Connect is done, create a new TcpConnection.
-        transStateInLoop(ClientState::Connected);
+        mpEventLoop->queueInLoop([this] {
+            transStateInLoop(ClientState::Connected);
+        });
     } else {
         // Error happen, retry connect.
         LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, errCode, strerror(errCode));
-        if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
-            mpEventLoop->runAfter([this] {
-                transStateInLoop(ClientState::Connecting);
-            }, mConnTimeout);
-            mConnTimeout *= 2;
-        } else {
-            throw NetworkException("[TcpClient] Connect time out!", errno);
-        }
-
+        retry();
     }
     LOG_INFO("{}: X", __FUNCTION__);
 }
@@ -193,8 +181,8 @@ void TcpClient::doConnected() {
 
     // This channel is useless now.
     mConnChannel = nullptr;
-    // Reset timeout.
-    mConnTimeout = TCP_INIT_RETRY_TIMEOUT;
+    // Reset retry delay when connect done.
+    mConnRetryDelay = TCP_INIT_RETRY_TIMEOUT;
 
     // Create new connection.
     mConnection = TcpConnection::createTcpConnection(std::move(mConnSocket), mpEventLoop);
@@ -227,16 +215,9 @@ void TcpClient::doDisconnected() {
     mIdentification = UNKNOWN_CLIENT_ID;
     mConnection->destroyConnection();
     mConnection = nullptr;
-    // Second, if remote is shutdown, try to re-connect after a delay.
-    mConnTimeout = TCP_INIT_RETRY_TIMEOUT;
-    if (mConnTimeout < TCP_MAX_RETRY_TIMEOUT) {
-        mpEventLoop->runAfter([this] {
-            transStateInLoop(ClientState::Connecting);
-        }, mConnTimeout);
-        mConnTimeout *= 2;
-    } else {
-        throw NetworkException("[TcpClient] Connect time out!", errno);
-    }
+    // Second, if remote is shutdown, reset delay and retry connect.
+    mConnRetryDelay = TCP_INIT_RETRY_TIMEOUT;
+    retry();
     LOG_INFO("{} X", __FUNCTION__);
 }
 
@@ -246,5 +227,18 @@ void TcpClient::doForceDisconnected() {
     LOG_INFO("{} X", __FUNCTION__);
 }
 
+void TcpClient::retry() {
+    mpEventLoop->assertInLoopThread();
+    LOG_INFO("{}: curretn delay: {}", __FUNCTION__, mConnRetryDelay.count());
+    if (mConnRetryDelay < TCP_MAX_RETRY_TIMEOUT) {
+        mpEventLoop->runAfter([this] {
+            transStateInLoop(ClientState::Connecting);
+        }, mConnRetryDelay + mConnRandomDelay);
+        mConnRetryDelay *= 2;
+    } else {
+        throw NetworkException("[TcpClient] Connect time out!", errno);
+    }
+
+}
 
 } // namespace net::tcp

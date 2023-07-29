@@ -28,7 +28,7 @@ TcpConnectionPtr TcpConnection::createTcpConnection(net::SocketPtr&& socket, net
 }
 
 TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
-        : mpEventLoop(loop), mpSocket(std::move(socket)), mState(TcpState::DisConnected) {
+        : mpEventLoop(loop), mpSocket(std::move(socket)), mState(ConnState::DisConnected) {
     LOG_INFO("{}: E", __FUNCTION__);
 
     mLocalAddr = mpSocket->getLocalAddr();
@@ -52,9 +52,9 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
 
 TcpConnection::~TcpConnection() noexcept {
     LOG_INFO("{}: E", __FUNCTION__);
-    if (mState == TcpState::Connected || mState == TcpState::HalfClosed) {
+    if (mState == ConnState::Connected || mState == ConnState::HalfClosed) {
         destroyConnection();
-        mState = TcpState::DisConnected;
+        mState = ConnState::DisConnected;
         LOG_INFO("{}: The connection is not shutdown, but dtor has invoked...", __FUNCTION__);
     }
     LOG_INFO("{}: X", __FUNCTION__);
@@ -67,14 +67,14 @@ void TcpConnection::handleRead() {
     auto scopeGuard = shared_from_this();
     try {
         std::lock_guard lock { mRecvMutex };
-        assertTrue(mState == TcpState::Connected || mState == TcpState::HalfClosed
+        assertTrue(mState == ConnState::Connected || mState == ConnState::HalfClosed
                 , "[TcpConnection] invoke handleRead in a bad connection!");
         mRecvBuffer.readFromSocket(mpSocket);
         if (mMessageCb) {
             mMessageCb(scopeGuard, mRecvBuffer);
         }
     } catch (utils::NetworkException& e) {
-        if (e.getNetErr() == 0) {
+        if (mpSocket->getSocketError() == 0) {
             LOG_INFO("{} remote socket is shutdown.", __FUNCTION__);
             handleClose();
         } else {
@@ -89,7 +89,7 @@ void TcpConnection::handleWrite() {
     mpEventLoop->assertInLoopThread();
     auto scopeGuard = shared_from_this();
     std::lock_guard lock { mSendMutex };
-    assertTrue(mState == TcpState::Connected, "[TcpConnection] invoke handleWrite in a bad connection!");
+    assertTrue(mState == ConnState::Connected, "[TcpConnection] invoke handleWrite in a bad connection!");
     if (mSendBuffer.size() != 0) {
         mSendBuffer.writeToSocket(mpSocket);
     }
@@ -111,7 +111,7 @@ void TcpConnection::handleClose() {
     mpEventLoop->assertInLoopThread();
 
     std::scoped_lock lock { mRecvMutex, mSendMutex };
-    mState = TcpState::DisConnected;
+    mState = ConnState::DisConnected;
     auto scopeGuard = shared_from_this();
     if (mConnectionCb) {
         mConnectionCb(scopeGuard);
@@ -127,6 +127,7 @@ void TcpConnection::handleClose() {
 void TcpConnection::handleError() {
     TRACE();
     auto errCode = mpSocket->getSocketError();
+    assertTrue(errCode != 0, "[TcpConnection] What happen?");
     LOG_ERR("{}: code({}) message({})", __FUNCTION__, errCode, strerror(errCode));
     mpEventLoop->assertInLoopThread();
 }
@@ -180,7 +181,7 @@ void TcpConnection::establishConnect() {
     LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
     mpChannel->enableRead();
-    mState = TcpState::Connected;
+    mState = ConnState::Connected;
     if (mConnectionCb) {
         mConnectionCb(shared_from_this());
     }
@@ -211,7 +212,7 @@ void TcpConnection::shutdownConnection() noexcept {
     mpEventLoop->assertInLoopThread();
     try {
         std::scoped_lock lock { mRecvMutex, mSendMutex };
-        mState = TcpState::HalfClosed;
+        mState = ConnState::HalfClosed;
         mpChannel->disableWrite();
         mpSocket->shutdown();
     } catch (const std::exception& e) {

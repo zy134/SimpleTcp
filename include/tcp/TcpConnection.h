@@ -32,20 +32,20 @@ using TcpCloseCallback          = std::function<void (const TcpConnectionPtr&)>;
 using TcpWriteCompleteCallback  = std::function<void (const TcpConnectionPtr&)>;
 using TcpHighWaterMarkCallback  = std::function<void (const TcpConnectionPtr&)>;
 
-// The state of Tcp connection.
-enum class TcpState {
-    Connected,
-    HalfClosed,
-    DisConnected
-};
-// State machine:
-// 1. If shutdown connection actively:
-//      DisConnected -> Connected -> HalfClosed -> DisConnected
-// 2. If shutdown connection passively:
-//      DisConnected -> Connected -> DisConnected
-
 
 class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
+    // The state of Tcp connection.
+    enum class ConnState {
+        Connected,
+        HalfClosed,
+        DisConnected
+    };
+    // State machine:
+    // 1. If shutdown connection actively:
+    //      DisConnected -> Connected -> HalfClosed -> DisConnected
+    // 2. If shutdown connection passively:
+    //      DisConnected -> Connected -> DisConnected
+
 public:
     static TcpConnectionPtr createTcpConnection(net::SocketPtr&& socket, net::EventLoop* loop);
 
@@ -69,7 +69,7 @@ public:
      * @brief send : User interface. Send message to server.
      *               Thread-safety.
      *
-     * @param message: 
+     * @param message:
      */
     void send(std::string_view message);
 
@@ -90,7 +90,7 @@ public:
      * @return result string.
      */
     std::string readAll() noexcept;
-    
+
     /**
      * @brief extract : Return a string which read from TcpBuffer, and extract data from TcpBuffer.
      *                  The size of result string may less then input size, please check it!
@@ -113,7 +113,7 @@ public:
      *                            , and then release the Channel and Socket.
      */
     void destroyConnection() noexcept;
-    
+
     /**
      * @brief shutdownConnection : Internal interface.
      *                             Call by TcpServer/TcpClient to shutdown write port of socket
@@ -124,12 +124,12 @@ public:
     ~TcpConnection() noexcept;
 
     [[nodiscard]]
-    inline bool isConnected() const noexcept { return mState == TcpState::Connected; }
+    inline bool isConnected() const noexcept { return mState == ConnState::Connected; }
 
     [[nodiscard]]
-    inline bool isDisconnected() const noexcept { return mState == TcpState::DisConnected; }
+    inline bool isDisconnected() const noexcept { return mState == ConnState::DisConnected; }
 
-    inline void setState(TcpState state) noexcept { mState = state; }
+    inline void setState(ConnState state) noexcept { mState = state; }
 
     inline SocketAddr getLocalAddr() const noexcept { return mLocalAddr; }
 
@@ -150,7 +150,7 @@ private:
     TcpWriteCompleteCallback    mWriteCompleteCb;
     TcpHighWaterMarkCallback    mHighWaterMarkCb;
 
-    TcpState                    mState;
+    ConnState                   mState;
 
     std::mutex                  mSendMutex;
     std::mutex                  mRecvMutex;
@@ -158,13 +158,13 @@ private:
     TcpBuffer                   mSendBuffer;
 
     TcpConnection(net::SocketPtr&& socket, net::EventLoop* loop);
-    
+
     void handleRead();
-    
+
     void handleWrite();
-    
+
     void handleError();
-    
+
     void handleClose();
 };
 

@@ -16,7 +16,7 @@ namespace net {
 class EventLoop;
 
 // Use timestamp of steady clock as the identification of Timer.
-using TimerId = uint64_t;
+using TimerId = std::chrono::microseconds::rep;
 inline constexpr TimerId INVALID_TIMER_ID = 0;
 
 class TimerQueue {

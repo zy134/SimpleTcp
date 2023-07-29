@@ -108,9 +108,7 @@ void EventLoop::removeChannel(Channel *channel) {
     LOG_INFO("{}: channel {}, fd {}"
             , __FUNCTION__, static_cast<void *>(channel), channel->getFd());
     assertInLoopThread();
-    if (mIsLoopingNow) {
-        assertTrue(mpCurrentChannel == channel, "Channel can only remove by itself!");
-    }
+    assertTrue(mIsLoopingNow == false, "Don't remove channel in loop! Should queueInLoop...");
     mpPoller->removeChannel(channel);
 }
 

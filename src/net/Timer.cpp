@@ -26,10 +26,6 @@ TimerPtr Timer::createTimer() {
     return TimerPtr(new Timer(timerfd));
 }
 
-constexpr auto MICROSECONDS_PER_SECOND = 1000 * 1000;
-// constexpr auto NANOSECONDS_PER_SECOND = 1000 * 1000 * 1000;
-constexpr auto NANOSECONDS_PER_USEC = 1000;
-
 Timer::~Timer() {
     LOG_DEBUG("{}: E", __FUNCTION__);
     ::close(getFd());
@@ -72,6 +68,7 @@ void Timer::setRepeating(TimerType type, std::chrono::microseconds interval) {
         LOG_ERR("{}: {}, error argument:{:6d}s.{:9d}ns", __FUNCTION__, strerror(errno),
                 newTime.it_interval.tv_sec, newTime.it_interval.tv_nsec);
     }
+    mIsRepeating = true;
 }
 
 void Timer::resetTimer() {
@@ -94,14 +91,25 @@ void Timer::cancelTimer() {
     }
 }
 
-uint32_t Timer::getTimer() const {
+microseconds Timer::getTimer() const {
     TRACE();
     itimerspec oldTime {};
     auto res = ::timerfd_gettime(getFd(), &oldTime);
     if (res != 0) {
         LOG_ERR("{}: {}", __FUNCTION__, strerror(errno));
+        return microseconds(0);
     }
-    return oldTime.it_value.tv_sec * MICROSECONDS_PER_SECOND + (oldTime.it_value.tv_nsec / NANOSECONDS_PER_USEC);
+
+    seconds secs;
+    nanoseconds usecs;
+    if (!mIsRepeating) {
+        secs = seconds { oldTime.it_value.tv_sec };
+        usecs = nanoseconds { oldTime.it_value.tv_nsec };
+    } else {
+        secs = seconds { oldTime.it_interval.tv_sec };
+        usecs = nanoseconds { oldTime.it_interval.tv_nsec };
+    }
+    return duration_cast<microseconds>(secs) + duration_cast<microseconds>(usecs);
 }
 
 void Timer::handleRead() {
