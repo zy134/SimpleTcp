@@ -5,7 +5,6 @@
 #include "net/EventLoop.h"
 #include "net/Socket.h"
 #include "tcp/TcpBuffer.h"
-#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
@@ -27,7 +26,7 @@ class TcpConnection;
 // All callbacks is run in loop thread.
 using TcpConnectionPtr          = std::shared_ptr<TcpConnection>;
 using TcpConnectionCallback     = std::function<void (const TcpConnectionPtr&)>;
-using TcpMessageCallback        = std::function<void (const TcpConnectionPtr&, TcpBuffer&)>;
+using TcpMessageCallback        = std::function<void (const TcpConnectionPtr&)>;
 using TcpCloseCallback          = std::function<void (const TcpConnectionPtr&)>;
 using TcpWriteCompleteCallback  = std::function<void (const TcpConnectionPtr&)>;
 using TcpHighWaterMarkCallback  = std::function<void (const TcpConnectionPtr&)>;
@@ -100,6 +99,26 @@ public:
      * @return result string.
      */
     std::string extract(size_t size) noexcept;
+
+    /**
+     * @brief extract : Return a string which read from TcpBuffer, and extract data from TcpBuffer.
+     *                  The size of result string may less then input size, please check it!
+     *                  Thread-safety
+     * @param size: the size of data user would extract.
+     *
+     * @return result string.
+     */
+    std::string extractAll() noexcept;
+
+    /**
+     * @brief getBufferSize : Get the size of bytes store in mRecvBuffer.
+     *
+     * @return
+     */
+    auto getBufferSize() {
+        std::lock_guard lock { mRecvMutex };
+        return mRecvBuffer.size();
+    }
 
     /**
      * @brief establishConnect :Internal interface.

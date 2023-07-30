@@ -71,7 +71,7 @@ void TcpConnection::handleRead() {
                 , "[TcpConnection] invoke handleRead in a bad connection!");
         mRecvBuffer.readFromSocket(mpSocket);
         if (mMessageCb) {
-            mMessageCb(scopeGuard, mRecvBuffer);
+            mMessageCb(scopeGuard);
         }
     } catch (utils::NetworkException& e) {
         if (mpSocket->getSocketError() == 0) {
@@ -173,6 +173,13 @@ std::string TcpConnection::readAll() noexcept {
 std::string TcpConnection::extract(size_t size) noexcept {
     TRACE();
     std::lock_guard lock { mRecvMutex };
+    return mRecvBuffer.extract(size);
+}
+
+std::string TcpConnection::extractAll() noexcept {
+    TRACE();
+    std::lock_guard lock { mRecvMutex };
+    auto size = mRecvBuffer.size();
     return mRecvBuffer.extract(size);
 }
 

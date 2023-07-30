@@ -100,7 +100,7 @@ private:
     // Help function for retry connection, it would throw exception when retry timeout.
     void retry();
 
-    net::EventLoop*     mpEventLoop;
+    EventLoop*     mpEventLoop;
     SocketAddr          mServerAddr;
     ClientState         mState; // State can only change in loop thread.
 

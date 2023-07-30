@@ -35,8 +35,8 @@ const SocketAddr serverAddr {
 
 TcpConnectionPtr clientConn;
 
-static void onMessage(const TcpConnectionPtr&, TcpBuffer& buffer) {
-    auto message = buffer.extract(buffer.size());
+static void onMessage(const TcpConnectionPtr& conn) {
+    auto message = conn->extractAll();
     std::cout << "From server:[" << message << "]" << std::endl;
 }
 

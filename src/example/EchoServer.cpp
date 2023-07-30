@@ -46,8 +46,8 @@ static void onConnection(const TcpConnectionPtr& conn) {
     }
 }
 
-static void onMessage(const TcpConnectionPtr& conn, TcpBuffer& buffer) {
-    auto message = buffer.extract(buffer.size());
+static void onMessage(const TcpConnectionPtr& conn) {
+    auto message = conn->extractAll();
     std::cerr << "read from client [" << message << "]" << std::endl;
     conn->send(message);
     conn->dumpSocketInfo();

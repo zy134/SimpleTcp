@@ -288,10 +288,7 @@ void LogServer::doFlushAsync() {
                     mvAvailbleBuffers.pop_back();
                 }
                 // set mNeedFlushNow as false.
-                [[unlikely]]
-                if (mNeedFlushNow) {
-                    mNeedFlushNow = false;
-                }
+                mNeedFlushNow = false;
             }
             needFlushBuffers.swap(mvPendingBuffers);
         }
@@ -321,6 +318,12 @@ void LogServer::doFlushAsync() {
 
 }
 
+
+static constexpr auto LOG_FILE_PERM =
+    filesystem::perms::owner_read | filesystem::perms::owner_write |
+    filesystem::perms::group_read | filesystem::perms::group_write |
+    filesystem::perms::others_read | filesystem::perms::others_write;
+
 std::fstream LogServer::createLogFileStream() {
     // Create log path and change its permissions to 0777.
     // TODO: Permission error may be happen, how to deal with that case?
@@ -328,7 +331,7 @@ std::fstream LogServer::createLogFileStream() {
         // create_directory() return false because the directory is existed, ignored it.
         // We just focus on the case which create_directory() or permissions() throw a exception
         std::filesystem::create_directory(DEFAULT_LOG_PATH);
-        std::filesystem::permissions(DEFAULT_LOG_PATH, std::filesystem::perms::all);
+        std::filesystem::permissions(DEFAULT_LOG_PATH, LOG_FILE_PERM);
     } catch (...) {
         throw SystemException("Can't create log filePath because:");
     }

@@ -18,37 +18,6 @@ using namespace std;
 using namespace net;
 using namespace net::tcp;
 
-#if 0
-int main() {
-    auto connectFd = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (connectFd < 0) {
-        LOG_ERR("{}: failed to create socket.", __FUNCTION__);
-        return 0;
-    }
-
-    sockaddr_in serverAddr {};
-    serverAddr.sin_port = ::htons(8848);
-    serverAddr.sin_family = AF_INET;
-    if (auto res = ::inet_pton(AF_INET, "127.0.0.0", &serverAddr.sin_addr); res <= 0) {
-        LOG_ERR("{}: error addr, code({}) message({})", __FUNCTION__, errno, strerror(errno));
-        return 0;
-    }
-
-    if (auto res = ::connect(connectFd, (sockaddr*)&serverAddr, sizeof(serverAddr)); res != 0) {
-        LOG_ERR("{}: connect failed, code({}) message({})", __FUNCTION__, errno, strerror(errno));
-        return 0;
-    }
-    LOG_ERR("{}: connect Success!", __FUNCTION__);
-    constexpr std::string_view message = "hello world";
-    while (true) {
-        ::write(connectFd, message.data(), message.size());
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-    return 0;
-}
-
-#else
-
 const SocketAddr serverAddr {
     .mIpAddr = "127.0.0.0",
     .mIpProtocol = IP_PROTOCOL::IPv4,
@@ -91,4 +60,3 @@ int main() try {
     LOG_ERR("{}: {}", __FUNCTION__, e.what());
     throw;
 }
-#endif
