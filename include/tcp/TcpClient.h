@@ -10,7 +10,7 @@
 
 namespace net::tcp {
 
-class TcpClient {
+class TcpClient final {
     /*
      * ClientState:
      *
@@ -73,15 +73,40 @@ public:
      */
     void disconnect();
 
-    // User interface.
+    /**
+     * @brief setConnectionCallback: User interface.
+     *
+     * @param cb: connection callback which would be invoked when a connection is created or removed.
+     */
     void setConnectionCallback(TcpConnectionCallback&& cb) noexcept { mConnectionCb = std::move(cb); }
 
-    // User interface.
+    /**
+     * @brief setMessageCallback: User interface
+     *
+     * @param cb: messsage callback which would be invoked when a messsage is received from server.
+     */
     void setMessageCallback(TcpMessageCallback&& cb) noexcept { mMessageCb = std::move(cb); }
 
-    // User interface.
+    /**
+     * @brief setWriteCompleteCallback: User interface
+     *
+     * @param cb: write complete callback which would be invoked after all write operation done.
+     */
     void setWriteCompleteCallback(TcpWriteCompleteCallback&& cb) noexcept { mWriteCompleteCb = std::move(cb); }
 
+    /**
+     * @brief setHighWaterMarkCallback: User interface
+     *
+     * @param cb: The callback function would be invoked when
+     *            the size of received buffer bigger then TCP_HIGH_WATER_MARK.
+     */
+    void setHighWaterMarkCallback(TcpHighWaterMarkCallback&& cb) noexcept { mHighWaterMarkCb = std::move(cb); }
+
+    /**
+     * @brief getId : Get the idenfication of current server.
+     *
+     * @return 
+     */
     [[nodiscard]]
     std::string_view getId() const noexcept { return mIdentification; }
 
@@ -121,6 +146,7 @@ private:
     TcpConnectionCallback       mConnectionCb;
     TcpMessageCallback          mMessageCb;
     TcpWriteCompleteCallback    mWriteCompleteCb;
+    TcpHighWaterMarkCallback    mHighWaterMarkCb;
 
 };
 

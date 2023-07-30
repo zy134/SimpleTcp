@@ -17,7 +17,7 @@ namespace net::tcp {
  *  0               mReadPos                            mWritePos           last
  *
  */
-class TcpBuffer {
+class TcpBuffer final {
 public:
     DISABLE_COPY(TcpBuffer);
     DISABLE_MOVE(TcpBuffer);

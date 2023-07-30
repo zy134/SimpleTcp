@@ -5,7 +5,6 @@
 #include "net/Channel.h"
 
 #include <chrono>
-#include <cstdint>
 #include <memory>
 #include <unordered_map>
 #include <functional>

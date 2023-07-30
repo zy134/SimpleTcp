@@ -50,13 +50,4 @@ private:
 
 using TimerPtr = Timer::TimerPtr;
 
-inline auto operator<=>(const TimerPtr& lhs, const int fd) noexcept {
-    return lhs->getFd()<=>fd;
-};
-
-inline auto operator<=>(const TimerPtr& lhs, const TimerPtr& rhs) noexcept {
-    return lhs->getFd()<=>rhs->getFd();
-};
-
-
 } // namespace utils

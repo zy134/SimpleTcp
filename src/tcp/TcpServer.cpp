@@ -92,6 +92,10 @@ void TcpServer::setWriteCompleteCallback(TcpWriteCompleteCallback &&cb) noexcept
     mWriteCompleteCb = std::move(cb);
 }
 
+void TcpServer::setHighWaterMarkCallback(TcpHighWaterMarkCallback &&cb) noexcept {
+    mHighWaterMarkCb = std::move(cb);
+}
+
 // Callback for Channel::handleEvent(), so it is run in loop thread.
 void TcpServer::createNewConnection() {
     LOG_INFO("{}", __FUNCTION__);
@@ -116,6 +120,7 @@ void TcpServer::createNewConnection() {
     newConn->setConnectionCallback(mConnectionCb);
     newConn->setMessageCallback(mMessageCb);
     newConn->setWriteCompleteCallback(mWriteCompleteCb);
+    newConn->setHighWaterMarkCallback(mHighWaterMarkCb);
 
     // Must remove connection in loop thread.
     // EventLoop::poll()

@@ -4,7 +4,9 @@
 #include "base/Backtrace.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstddef>
+#include <cstring>
 #include <exception>
 #include <fmt/core.h>
 #include <iostream>
@@ -50,7 +52,7 @@ using namespace std::chrono_literals;
 
 // LogBuffer is a simple memory buffer wrapper.
 // Not thread-safety!
-class LogBuffer {
+class LogBuffer final {
     DISABLE_COPY(LogBuffer);
     DISABLE_MOVE(LogBuffer);
 
@@ -70,7 +72,7 @@ public:
     }
 
     void write(std::string_view line) {
-        // std::cout << "start write size:" << size << std::endl;
+        // std::cout << "start write size:" << line.size() << std::endl;
         ::memcpy(mRawBuffer.data() + mUsedSize, line.data(), line.size());
         mUsedSize += line.size();
     }
@@ -98,7 +100,7 @@ private:
 
 // LogServer is the backend server, which manage multiple memory buffers and
 // flush these buffers to Log file asynchronously in appropriate time.
-class LogServer {
+class LogServer final {
     DISABLE_COPY(LogServer);
     DISABLE_MOVE(LogServer);
 public:
@@ -170,8 +172,9 @@ void LogServer::forceDestroy() noexcept {
         if (mFlushThread.joinable()) {
             mFlushThread.join();
         }
-    } catch (...) {
+    } catch (const std::exception& e) {
         // ignore exception
+        std::cerr << e.what() << std::endl;
     }
 }
 
@@ -180,8 +183,9 @@ void LogServer::forceFlush() noexcept {
         // std::lock_guard lock { mMutex };
         mNeedFlushNow = true;
         mCond.notify_one();
-    } catch (...) {
+    } catch (const std::exception& e) {
         // ignore exception.
+        std::cerr << e.what() << std::endl;
     }
 }
 
@@ -318,12 +322,6 @@ void LogServer::doFlushAsync() {
 
 }
 
-
-static constexpr auto LOG_FILE_PERM =
-    filesystem::perms::owner_read | filesystem::perms::owner_write |
-    filesystem::perms::group_read | filesystem::perms::group_write |
-    filesystem::perms::others_read | filesystem::perms::others_write;
-
 std::fstream LogServer::createLogFileStream() {
     // Create log path and change its permissions to 0777.
     // TODO: Permission error may be happen, how to deal with that case?
@@ -331,8 +329,9 @@ std::fstream LogServer::createLogFileStream() {
         // create_directory() return false because the directory is existed, ignored it.
         // We just focus on the case which create_directory() or permissions() throw a exception
         std::filesystem::create_directory(DEFAULT_LOG_PATH);
-        std::filesystem::permissions(DEFAULT_LOG_PATH, LOG_FILE_PERM);
+        std::filesystem::permissions(DEFAULT_LOG_PATH, std::filesystem::perms::all);
     } catch (...) {
+        std::cerr << "Failed to create log file!" << strerror(errno) << std::endl;
         throw SystemException("Can't create log filePath because:");
     }
 
@@ -354,6 +353,7 @@ std::fstream LogServer::createLogFileStream() {
         auto fileStream = std::fstream(filePath.data(), std::ios::in | std::ios::out | std::ios::trunc);
         return fileStream;
     } catch (...) {
+        std::cerr << "Failed to create log file!" << strerror(errno) << std::endl;
         throw SystemException("Can't create log file because:");
     }
 }

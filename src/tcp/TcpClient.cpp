@@ -51,7 +51,7 @@ TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr)
     LOG_INFO("{}: X", __FUNCTION__);
 }
 
-// The life time of mConnection must be longer then connection!
+// The life time of TcpClient must be longer then connection!
 TcpClient::~TcpClient() {
     LOG_INFO("{}: E", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
@@ -189,6 +189,7 @@ void TcpClient::doConnected() {
     mConnection->setMessageCallback(mMessageCb);
     mConnection->setWriteCompleteCallback(mWriteCompleteCb);
     mConnection->setConnectionCallback(mConnectionCb);
+    mConnection->setHighWaterMarkCallback(mHighWaterMarkCb);
     mConnection->setCloseCallback([this] (const TcpConnectionPtr&) {
         mpEventLoop->queueInLoop([this] {
             transStateInLoop(ClientState::Disconnect);
@@ -223,7 +224,9 @@ void TcpClient::doDisconnected() {
 
 void TcpClient::doForceDisconnected() {
     LOG_INFO("{} E", __FUNCTION__);
-    mConnection->shutdownConnection();
+    mpEventLoop->queueInLoop([this] {
+        mConnection->shutdownConnection();
+    });
     LOG_INFO("{} X", __FUNCTION__);
 }
 

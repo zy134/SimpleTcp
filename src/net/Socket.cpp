@@ -3,10 +3,6 @@
 #include "base/Log.h"
 #include "net/Socket.h"
 #include <algorithm>
-#include <asm-generic/socket.h>
-#include <cerrno>
-#include <cstdint>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -34,7 +30,7 @@ Socket::~Socket() {
     ::close(getFd());
 }
 
-inline static int createNonblockingSocket(IP_PROTOCOL protocol) {
+inline static int createTcpNonblockingSocket(IP_PROTOCOL protocol) {
     int socketFd = ::socket(
             protocol == IP_PROTOCOL::IPv4 ? AF_INET : AF_INET6
             , SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK
@@ -91,7 +87,7 @@ SocketPtr Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
             LOG_ERR("{}: error IP addr {}, error {}", __FUNCTION__, serverSocketAddr.mIpAddr.data(), errno);
             return result;
         }
-        auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv4);
+        auto socketFd = createTcpNonblockingSocket(IP_PROTOCOL::IPv4);
         if (auto res = ::connect(socketFd, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr))
                 ; res < 0 && failedResult(errno)) {
             LOG_ERR("{}: connect failed, addr:{} port:{}", __FUNCTION__
@@ -111,7 +107,7 @@ SocketPtr Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
                     , serverSocketAddr.mIpAddr.data(), serverSocketAddr.mPort);
             return result;
         }
-        auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv6);
+        auto socketFd = createTcpNonblockingSocket(IP_PROTOCOL::IPv6);
         if (auto res = ::connect(socketFd, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr))
                 ; res < 0 && failedResult(errno)) {
             LOG_ERR("{}: failed to connect {}", __FUNCTION__, serverSocketAddr.mIpAddr.data());
@@ -121,6 +117,8 @@ SocketPtr Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
     }
     result->setLocalAddr(serverSocketAddr.mIpProtocol);
     result->setPeerAddr(std::move(serverSocketAddr));
+    result->mIsTCPSocket = true;
+    result->mIsUDPtenSocket = false;
     return result;
 }
 
@@ -128,15 +126,17 @@ SocketPtr Socket::createTcpListenSocket(SocketAddr&& serverSocketAddr, int maxLi
     std::unique_ptr<Socket> result;
     if (serverSocketAddr.mIpProtocol == IP_PROTOCOL::IPv4) {
         LOG_DEBUG("{}: IPv4", __FUNCTION__);
-        auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv4);
+        auto socketFd = createTcpNonblockingSocket(IP_PROTOCOL::IPv4);
         result.reset(new Socket(socketFd));
     } else {
         LOG_DEBUG("{}: IPv6", __FUNCTION__);
-        auto socketFd = createNonblockingSocket(IP_PROTOCOL::IPv6);
+        auto socketFd = createTcpNonblockingSocket(IP_PROTOCOL::IPv6);
         result.reset(new Socket(socketFd));
     }
     result->mIsListenSocket = true;
     result->mMaxListenQueue = maxListenQueue;
+    result->mIsTCPSocket = true;
+    result->mIsUDPtenSocket = false;
     result->mLocalAddr.mPort = serverSocketAddr.mPort;
     result->mLocalAddr.mIpProtocol = serverSocketAddr.mIpProtocol;
     return result;
@@ -145,6 +145,7 @@ SocketPtr Socket::createTcpListenSocket(SocketAddr&& serverSocketAddr, int maxLi
 void Socket::listen() {
     LOG_INFO("{}: start", __FUNCTION__);
     assertTrue(mIsListenSocket, "[Socket] listen just can be invoked by listen socket!");
+    assertTrue(mIsTCPSocket, "[Socket] listen just can be invoked in tcp socket!");
     if (mLocalAddr.mIpProtocol == IP_PROTOCOL::IPv4) {
         LOG_DEBUG("{}: IPv4", __FUNCTION__);
         sockaddr_in serverAddr = {};
@@ -178,6 +179,7 @@ SocketPtr Socket::accept() {
     LOG_INFO("{}: start", __FUNCTION__);
     // Accept connection.
     assertTrue(mIsListenSocket, "[Socket] accept just can be invoked by listen socket!");
+    assertTrue(mIsTCPSocket, "[Socket] accept just can be invoked in tcp socket!");
     std::variant<sockaddr_in, sockaddr_in6> clientAddr;
     socklen_t addrLen = (getIpProtocol() == IP_PROTOCOL::IPv4)
             ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);

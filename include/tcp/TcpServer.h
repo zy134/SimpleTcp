@@ -12,7 +12,7 @@
 
 namespace net::tcp {
 
-class TcpServer {
+class TcpServer final {
 public:
     DISABLE_COPY(TcpServer);
     DISABLE_MOVE(TcpServer);
@@ -46,6 +46,19 @@ public:
      */
     void setWriteCompleteCallback(TcpWriteCompleteCallback&& cb) noexcept;
 
+    /**
+     * @brief setHighWaterMarkCallback: User interface
+     *
+     * @param cb: The callback function would be invoked when
+     *            the size of received buffer bigger then TCP_HIGH_WATER_MARK.
+     */
+    void setHighWaterMarkCallback(TcpHighWaterMarkCallback&& cb) noexcept;
+
+    /**
+     * @brief getId : Get the idenfication of current server.
+     *
+     * @return 
+     */
     [[nodiscard]]
     std::string_view getId() const noexcept { return mIdentification; }
 
@@ -64,6 +77,7 @@ private:
     TcpConnectionCallback       mConnectionCb;
     TcpMessageCallback          mMessageCb;
     TcpWriteCompleteCallback    mWriteCompleteCb;
+    TcpHighWaterMarkCallback    mHighWaterMarkCb;
 
     void createNewConnection();
 };

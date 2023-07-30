@@ -2,7 +2,6 @@
 
 #include "base/Utils.h"
 #include <algorithm>
-#include <cstdint>
 #include <functional>
 #include <memory>
 
@@ -23,7 +22,7 @@ enum ChannelPriority {
 
 // The Channl not hold the file descriptor, it just record it. So you need manage the lifetime
 // of file descriptor yourself!
-class Channel {
+class Channel final {
 public:
     DISABLE_COPY(Channel);
     DISABLE_MOVE(Channel);

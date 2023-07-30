@@ -15,7 +15,7 @@ extern "C" {
 #include <netdb.h>
 #include <string.h>
 }
-#include <stdexcept>
+#include <exception>
 #include <system_error>
 
 namespace utils {

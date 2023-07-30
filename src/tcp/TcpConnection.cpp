@@ -53,8 +53,8 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
 TcpConnection::~TcpConnection() noexcept {
     LOG_INFO("{}: E", __FUNCTION__);
     if (mState == ConnState::Connected || mState == ConnState::HalfClosed) {
-        destroyConnection();
         mState = ConnState::DisConnected;
+        destroyConnection();
         LOG_INFO("{}: The connection is not shutdown, but dtor has invoked...", __FUNCTION__);
     }
     LOG_INFO("{}: X", __FUNCTION__);
@@ -109,16 +109,18 @@ void TcpConnection::handleClose() {
     auto errCode = mpSocket->getSocketError();
     LOG_ERR("{}: code({}) message({})", __FUNCTION__, errCode, strerror(errCode));
     mpEventLoop->assertInLoopThread();
+    assertTrue(mState == ConnState::Connected || mState == ConnState::HalfClosed
+            , "[TcpConnection] handleClose: destroy a bad connection!");
 
     std::scoped_lock lock { mRecvMutex, mSendMutex };
     mState = ConnState::DisConnected;
     auto scopeGuard = shared_from_this();
+    if (mCloseCb) {
+        // mCloseCb is a lambda wraper destroyConnection()
+        mCloseCb(scopeGuard);
+    }
     if (mConnectionCb) {
         mConnectionCb(scopeGuard);
-    }
-    if (mCloseCb) {
-        // destroyConnection()
-        mCloseCb(scopeGuard);
     }
 }
 
@@ -198,6 +200,7 @@ void TcpConnection::establishConnect() {
 void TcpConnection::destroyConnection() noexcept {
     LOG_INFO("{}", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
+    assertTrue(mState == ConnState::DisConnected, "[TcpConnection] destroyConnection: must set setState as DisConnected!");
     try {
         // remove Channel from EventLoop
         if (mpChannel) {
@@ -219,6 +222,10 @@ void TcpConnection::shutdownConnection() noexcept {
     mpEventLoop->assertInLoopThread();
     try {
         std::scoped_lock lock { mRecvMutex, mSendMutex };
+        if (mState == ConnState::DisConnected) {
+            LOG_WARN("{}: connection is already closed.", __FUNCTION__);
+            return ;
+        }
         mState = ConnState::HalfClosed;
         mpChannel->disableWrite();
         mpSocket->shutdown();

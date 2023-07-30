@@ -2,11 +2,13 @@
 
 #include "base/Utils.h"
 #include <algorithm>
-#include <cstdint>
 #include <memory>
+
+extern "C" {
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+}
 
 namespace net {
 
@@ -82,6 +84,8 @@ private:
 
     int         mFd;
     bool        mIsListenSocket;
+    bool        mIsTCPSocket;
+    bool        mIsUDPtenSocket;
     int         mMaxListenQueue;
     SocketAddr  mLocalAddr;
     SocketAddr  mPeerAddr;

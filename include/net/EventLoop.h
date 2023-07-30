@@ -19,7 +19,7 @@ class Epoller;
 class EventFd;
 class TimerQueue;
 
-class EventLoop {
+class EventLoop final {
 public:
     DISABLE_COPY(EventLoop);
     DISABLE_MOVE(EventLoop);

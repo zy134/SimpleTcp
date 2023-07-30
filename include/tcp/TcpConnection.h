@@ -32,7 +32,7 @@ using TcpWriteCompleteCallback  = std::function<void (const TcpConnectionPtr&)>;
 using TcpHighWaterMarkCallback  = std::function<void (const TcpConnectionPtr&)>;
 
 
-class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
+class TcpConnection final : public std::enable_shared_from_this<TcpConnection> {
     // The state of Tcp connection.
     enum class ConnState {
         Connected,
@@ -122,7 +122,7 @@ public:
 
     /**
      * @brief establishConnect :Internal interface.
-     *                          Call by TcpServer/TcpClient to enable connection readable.
+     *                          Call by TcpServer/TcpClient to make connection readable.
      */
     void establishConnect();
 

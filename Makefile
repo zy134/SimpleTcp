@@ -19,6 +19,8 @@ BASE_SOURCE_FILES       := $(wildcard $(SOURCE_PATH)/base/*.cpp)
 NET_SOURCE_FILES        := $(wildcard $(SOURCE_PATH)/net/*.cpp)
 TCP_SOURCE_FILES        := $(wildcard $(SOURCE_PATH)/tcp/*.cpp)
 EXAMPLE_SOURCE_FILES    := $(wildcard $(SOURCE_PATH)/example/*.cpp)
+ALL_SOURCE_FILE         := $(shell find . -name "*.cpp")
+ALL_HEADER_FILE         := $(shell find . -name "*.h")
 
 # ==============================================================================
 # Set target objects
@@ -48,6 +50,7 @@ endif
 
 # compile flag for debug version
 DEBUG_FLAGS := -Og -g -fno-omit-frame-pointer -DDEBUG_BUILD=1 -DDEFAULT_LOG_LEVEL=1
+# g++ need -rdynamic option to generate invocation infomation in stack frame.
 ifeq ($(CXX),g++)
     DEBUG_FLAGS += -rdynamic
 endif
@@ -55,12 +58,7 @@ endif
 RELEASE_FLAGS := -O2 -DRELEASE_BUILD=1 -DDEFAULT_LOG_LEVEL=2
 
 # address sanitizer flags
-
-ifeq ($(ENABLE_ASAN),true)
-    ASAN_FLAGS := -fsanitize=address -fsanitize=leak -fsanitize=undefined
-else
-    ASAN_FLAGS :=
-endif
+ASAN_FLAGS := -fsanitize=address -fsanitize=leak -fsanitize=undefined
 DEBUG_FLAGS += $(ASAN_FLAGS)
 
 # default, build debug version.
@@ -77,11 +75,12 @@ LINKFLAGS += $(TCP_MODULE) -lfmt
 # ==============================================================================
 # Set make targets.
 
-.PHONY: all config clean
-all: $(EXAMPLE_OBJS)
+.PHONY: all
+all: $(BASE_OBJS) $(NET_OBJS) $(TCP_OBJS) $(EXAMPLE_OBJS)
 
 START_TIME := $(shell cat /proc/uptime | awk -F "." '{print $$1}')
 
+.PHONY: config
 config: clean
 	@ echo "=========================== start config ============================"
 	mkdir $(BUILD_PATH)
@@ -150,6 +149,7 @@ $(EXAMPLE_OBJS): $(EXAMPLE_SOURCE_FILES) $(TCP_MODULE)
 		runtime=`date -u -d @$${time_interval} +%Hh:%Mm:%Ss`; \
 		echo "[$${current_time}][runtime] success build example, total run time: $${runtime}"
 
+.PHONY: clean
 clean:
 	@ echo "=============================== Clean ==============================="
 	rm $(BUILD_PATH) -rf
