@@ -3,6 +3,8 @@
 #include "base/Log.h"
 #include "base/Error.h"
 #include <algorithm>
+#include <cstddef>
+#include <cstring>
 #include <iostream>
 
 extern "C" {
@@ -12,9 +14,10 @@ extern "C" {
 
 static constexpr std::string_view TAG = "TcpBuffer";
 
-using namespace utils;
+using namespace simpletcp;
+using namespace simpletcp::net;
 
-namespace net::tcp {
+namespace simpletcp::tcp {
 
 TcpBuffer::TcpBuffer() :mReadPos(0), mWritePos(0) {
     mBuffer.resize(1024);
@@ -78,15 +81,16 @@ void TcpBuffer::writeToSocket(const SocketPtr &socket) {
     }
 }
 
-void TcpBuffer::appendToBuffer(std::string_view message) {
-    LOG_DEBUG("{}: start, message size:%zu, current buffer size:%zu", __FUNCTION__, message.size(), mBuffer.size());
-    while (writablebytes() < message.size()) {
-        mBuffer.resize(mBuffer.size() * 2);
+void TcpBuffer::appendToBuffer(std::span<char> data) {
+    LOG_DEBUG("{}: start, message size:{}, current buffer size:{}", __FUNCTION__, data.size(), mBuffer.size());
+    while (writablebytes() < data.size()) {
+        mBuffer.resize(data.size() * 2);
     }
-    std::copy(message.begin(), message.end(), getWritePos());
-    mWritePos += message.size();
-    LOG_DEBUG("{}: end, message size:%zu, current buffer size:%zu", __FUNCTION__, message.size(), mBuffer.size());
+    std::copy(data.begin(), data.end(), getWritePos());
+    mWritePos += data.size();
+    LOG_DEBUG("{}: end, message size:{}, current buffer size:{}", __FUNCTION__, data.size(), mBuffer.size());
 }
+
 
 std::string TcpBuffer::read(SizeType size) noexcept {
     std::string result;

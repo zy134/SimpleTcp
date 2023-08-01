@@ -1,16 +1,19 @@
 #pragma once
 
 #include "base/Utils.h"
+#include "base/Mutex.h"
 #include "net/Channel.h"
 #include "net/EventLoop.h"
 #include "net/Socket.h"
 #include "tcp/TcpBuffer.h"
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <span>
 
-namespace net::tcp {
+namespace simpletcp::tcp {
 
 /*
  * TcpConnection
@@ -70,7 +73,7 @@ public:
      *
      * @param message:
      */
-    void send(std::string_view message);
+    void send(std::span<char> data);
 
     /**
      * @brief read : Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
@@ -115,7 +118,7 @@ public:
      *
      * @return
      */
-    auto getBufferSize() {
+    auto getBufferSize() noexcept {
         std::lock_guard lock { mRecvMutex };
         return mRecvBuffer.size();
     }
@@ -150,9 +153,9 @@ public:
 
     inline void setState(ConnState state) noexcept { mState = state; }
 
-    inline SocketAddr getLocalAddr() const noexcept { return mLocalAddr; }
+    inline net::SocketAddr getLocalAddr() const noexcept { return mLocalAddr; }
 
-    inline SocketAddr getPeerAddr() const noexcept { return mPeerAddr; }
+    inline net::SocketAddr getPeerAddr() const noexcept { return mPeerAddr; }
 
     void dumpSocketInfo() const noexcept { mpSocket->dumpSocketInfo(); }
 
@@ -171,7 +174,6 @@ private:
 
     ConnState                   mState;
 
-    std::mutex                  mSendMutex;
     std::mutex                  mRecvMutex;
     TcpBuffer                   mRecvBuffer;
     TcpBuffer                   mSendBuffer;
@@ -185,6 +187,12 @@ private:
     void handleError();
 
     void handleClose();
+
+    void sendInLoop(std::span<char> data);
+
+    std::string readInLoop(size_t size) noexcept;
+
+    std::string extractInLoop(size_t size) noexcept;
 };
 
 

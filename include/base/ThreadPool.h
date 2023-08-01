@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/Jthread.h"
 #include <memory>
 #include <thread>
 #include <functional>
@@ -9,8 +10,7 @@
 #include <future>
 #include <type_traits>
 
-namespace utils {
-
+namespace simpletcp {
 
 class ThreadPool {
     using ThreadTaskType = std::function<void ()>;
@@ -84,7 +84,7 @@ private:
     bool                        mExited;
     std::mutex                  mMutex;
     std::condition_variable     mCond;
-    std::vector<std::jthread>   mWorkers;
+    std::vector<base::jthread>  mWorkers;
     std::list<ThreadTaskType>   mTasks;
 };
 

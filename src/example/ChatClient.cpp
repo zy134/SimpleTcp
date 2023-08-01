@@ -1,56 +1,62 @@
 #include "base/Log.h"
-#include "net/EventLoop.h"
-#include "net/Socket.h"
+#include "base/Jthread.h"
 #include "tcp/TcpClient.h"
-#include "tcp/TcpConnection.h"
 #include <chrono>
 #include <iostream>
+#include <string>
 #include <string_view>
-#include <thread>
+#include "ChatCommon.h"
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "ChatClient";
 
-using namespace utils;
+using namespace simpletcp;
+using namespace simpletcp::net;
+using namespace simpletcp::tcp;
 using namespace std;
-using namespace net;
-using namespace net::tcp;
 
-const SocketAddr serverAddr {
-    .mIpAddr = "127.0.0.0",
-    .mIpProtocol = IP_PROTOCOL::IPv4,
-    .mPort = 8848
-};
 
 TcpConnectionPtr clientConn;
 
-static void onConnection(const TcpConnectionPtr& conn) {
-    if (conn->isConnected()) {
-        LOG_INFO("Connection success!");
-        clientConn = conn;
-    } else {
-        LOG_INFO("Disconnected!");
-        clientConn = nullptr;
-    }
+static void onMessage(const TcpConnectionPtr& conn) {
+    TRACE();
+    auto message = conn->extractAll();
+    std::cout << message << std::endl;
 }
 
-int main() try {
+int main(int argc, char** argv) try {
+    if (argc < 2) {
+        std::cerr << "Invalid parameters" << std::endl;
+        return 0;
+    }
+    std::string clientName = argv[1];
+
     // create loop
     EventLoop loop;
-    TcpClient client(&loop, serverAddr);
-    client.setConnectionCallback(onConnection);
-    client.connect();
-    LOG_INFO("start server");
+    TcpClient client(&loop, chatServerAddr);
+    client.setConnectionCallback([&] (const TcpConnectionPtr& conn) {
+        if (conn->isConnected()) {
+            std::cout << "[EchoClient] Connection [" << client.getId() << "] is build!" << std::endl;
+            clientConn = conn;
+            auto msg = registerRequest(clientName);
+            conn->send(msg);
+        } else {
+            clientConn = nullptr;
+            std::cout << "[EchoClient] Connection [" << client.getId() << "] is destroy!" << std::endl;
+        }
+    });
 
-    auto inputThread = std::jthread([&] {
+    client.setMessageCallback(onMessage);
+    client.connect();
+    LOG_INFO("start client");
+
+    auto inputThread = simpletcp::jthread([&] {
         std::string input;
-        while (std::cin >> input) {
+        while (std::getline(std::cin, input)) {
             auto guard = clientConn;
             if (guard != nullptr) {
-                guard->send(std::move(input));
-                std::cout << "input: " << input << std::endl;
+                LOG_INFO("{}: input: {}", __FUNCTION__, input);
+                auto msg = normalRequest(input);
+                guard->send(msg);
             }
         }
     });

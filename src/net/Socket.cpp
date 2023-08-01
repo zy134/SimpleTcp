@@ -3,6 +3,7 @@
 #include "base/Log.h"
 #include "net/Socket.h"
 #include <algorithm>
+#include <cerrno>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -19,11 +20,11 @@ extern "C" {
 #include <netinet/in.h>
 }
 
-using namespace utils;
+using namespace simpletcp;
 
 static constexpr std::string_view TAG = "Socket";
 
-namespace net {
+namespace simpletcp::net {
 
 Socket::~Socket() {
     LOG_INFO("{} ", __FUNCTION__);
@@ -188,7 +189,7 @@ SocketPtr Socket::accept() {
             , SOCK_CLOEXEC | SOCK_NONBLOCK);
     if (connectedFd < 0) {
         LOG_ERR("{}: failed to accept, {}", __FUNCTION__, gai_strerror(errno));
-        throw utils::NetworkException("[Socket] accept failed.", errno);
+        throw NetworkException("[Socket] accept failed.", errno);
     }
 
     // Translate IP address.
@@ -221,7 +222,7 @@ void Socket::shutdown() {
 void Socket::setNonBlock(bool enable) {
     int flags = 0;
     if (flags = ::fcntl(getFd(), F_GETFL, 0); flags != 0) {
-        throw utils::SystemException("failed to setNonBlock");
+        throw SystemException("failed to setNonBlock");
     }
     if (enable) {
         flags |= O_NONBLOCK;
@@ -229,35 +230,35 @@ void Socket::setNonBlock(bool enable) {
         flags = (flags & (~O_NONBLOCK));
     }
     if (auto res = ::fcntl(getFd(), F_SETFL, flags); res != 0) {
-        throw utils::SystemException("failed to setNonBlock");
+        throw SystemException("failed to setNonBlock");
     }
 }
 
 void Socket::setNonDelay(bool enable) {
     int flag = enable ? 1 : 0;
     if (auto res = ::setsockopt(getFd(), SOL_SOCKET, TCP_NODELAY, &flag, sizeof(flag)); res != 0) {
-        throw utils::NetworkException("failed to setNonDelay.", res);
+        throw NetworkException("failed to setNonDelay.", getSocketError());
     }
 }
 
 void Socket::setKeepAlive(bool enable) {
     int flag = enable ? 1 : 0;
     if (auto res = ::setsockopt(getFd(), SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag)); res != 0) {
-        throw utils::NetworkException("failed to setKeepAlive", res);
+        throw NetworkException("failed to setKeepAlive", res);
     }
 }
 
 void Socket::setReuseAddr(bool enable) {
     int flag = enable ? 1 : 0;
     if (auto res = ::setsockopt(getFd(), SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)); res != 0) {
-        throw utils::NetworkException("failed to setReuseAddr", res);
+        throw NetworkException("failed to setReuseAddr", res);
     }
 }
 
 void Socket::setReusePort(bool enable) {
     int flag = enable ? 1 : 0;
     if (auto res = ::setsockopt(getFd(), SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag)); res != 0) {
-        throw utils::NetworkException("failed to setReusePort", res);
+        throw NetworkException("failed to setReusePort", res);
     }
 }
 

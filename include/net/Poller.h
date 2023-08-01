@@ -13,7 +13,7 @@
  * Initialize sequence: EventLoop >= Poller > TcpServer > TcpConnection >= Socket > Channel
  *
  */
-namespace net {
+namespace simpletcp::net {
 
 class EventLoop;
 class Channel;
@@ -32,7 +32,6 @@ public:
 
 private:
 
-    
 };
 
 } // namespace utils

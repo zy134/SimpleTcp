@@ -1,6 +1,5 @@
 #pragma once
 
-#include <fmt/core.h>
 #include <type_traits>
 #include <ios>
 #include <utility>
@@ -16,14 +15,9 @@
 #include <string_view>
 #include <type_traits>
 #include <concepts>
+#include "base/Format.h"
 
-#if __has_include(<fmt/format.h>)
-#include <fmt/format.h>
-#else
-#error "libfmt not found!"
-#endif
-
-namespace utils {
+namespace simpletcp {
 
 enum class LogLevel {
     Version = 0,
@@ -62,7 +56,7 @@ concept Formatable =
 
 template <StringType T, Formatable ...Args>
 constexpr void log(LogLevel level, std::string_view tag, T&& str, Args&& ...args) {
-    auto fmtStr = fmt::format(std::forward<T>(str), std::forward<Args>(args)...);
+    auto fmtStr = simpletcp::format(std::forward<T>(str), std::forward<Args>(args)...);
     detail::format_log_line(level, fmtStr, tag);
 }
 

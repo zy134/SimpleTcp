@@ -26,10 +26,10 @@ extern "C" {
 #endif
 static constexpr std::string_view TAG = "Channel";
 
-using namespace utils;
+using namespace simpletcp;
 using namespace std;
 
-namespace net {
+namespace simpletcp::net {
 
 /************************************************************/
 /*********************** Channel ****************************/

@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace utils {
+namespace simpletcp {
 
 constexpr uint32_t MAX_BACKTRACE_DEPTH = 16;
 

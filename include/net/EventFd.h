@@ -3,7 +3,7 @@
 #include <memory>
 #include <string_view>
 
-namespace net {
+namespace simpletcp::net {
 
 class EventFd final {
 public:

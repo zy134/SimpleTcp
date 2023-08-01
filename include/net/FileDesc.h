@@ -3,7 +3,7 @@
 #include <memory>
 #include <string_view>
 
-namespace utils {
+namespace simpletcp::net {
 
 class FileDesc final {
 public:

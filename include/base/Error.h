@@ -18,7 +18,7 @@ extern "C" {
 #include <exception>
 #include <system_error>
 
-namespace utils {
+namespace simpletcp {
 
 enum class ErrorCode : int32_t {
     Success = 0,

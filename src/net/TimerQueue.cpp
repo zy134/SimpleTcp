@@ -14,9 +14,9 @@
 
 static constexpr std::string_view TAG = "TimerQueue";
 
-using namespace utils;
+using namespace simpletcp;
 
-namespace net {
+namespace simpletcp::net {
 
 TimerQueue::TimerQueue(EventLoop* loop) : mpEventloop(loop) {}
 

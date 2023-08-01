@@ -17,11 +17,11 @@ extern "C" {
 
 static constexpr std::string_view TAG = "TcpServer";
 
-using namespace utils;
-using namespace net;
+using namespace simpletcp;
+using namespace simpletcp::net;
 
 
-namespace net::tcp {
+namespace simpletcp::tcp {
 
 TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue) : mpEventLoop(loop) {
     mpEventLoop->assertInLoopThread();
@@ -54,7 +54,7 @@ TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxLi
 
     // When new connection is established, create new idenfication for TcpClient.
     mIdentification = "";
-    mIdentification = fmt::format("{:016d}_{:05d}_{}_{}"
+    mIdentification = simpletcp::format("{:016d}_{:05d}_{}_{}"
         , std::chrono::steady_clock::now().time_since_epoch().count()
         , gettid()
         , mpListenSocket->getLocalAddr().mPort
@@ -103,7 +103,7 @@ void TcpServer::createNewConnection() {
     SocketPtr clientSocket;
     try {
         clientSocket = mpListenSocket->accept();
-    } catch (const utils::NetworkException& e) {
+    } catch (const NetworkException& e) {
         LOG_ERR("{}: Ignore exception: {}", e.what());
     } catch (const std::exception& e) {
         LOG_ERR("{}: {}", e.what());

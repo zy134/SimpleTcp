@@ -12,7 +12,9 @@ extern "C" {
 #include <sys/eventfd.h>
 }
 
-namespace utils {
+using namespace simpletcp;
+
+namespace simpletcp::net {
 
 constexpr auto DEFAULT_FILE_MODE = S_IRWXU | S_IRWXG | S_IRWXO;
 
@@ -23,14 +25,14 @@ FileDesc::FileDesc(std::string_view path, int flag, uint32_t mode = DEFAULT_FILE
         if (mFd < 0) {
             std::string msg = "Can't open file: ";
             msg.append(path.data());
-            throw utils::SystemException(msg);
+            throw SystemException(msg);
         }
     } else {
         mFd = ::open(path.data(), flag);
         if (mFd < 0) {
             std::string msg = "Can't open file: ";
             msg.append(path.data());
-            throw utils::SystemException(msg);
+            throw SystemException(msg);
         }
     }
 }
@@ -42,7 +44,7 @@ FileDesc::~FileDesc() {
 
 void FileDesc::setNonBlock() {
     if (auto res = ::fcntl(mFd, F_SETFL, O_NONBLOCK); res != 0) {
-        throw utils::SystemException("[FileDesc] failed to setNonBlock");
+        throw SystemException("[FileDesc] failed to setNonBlock");
     }
 }
 

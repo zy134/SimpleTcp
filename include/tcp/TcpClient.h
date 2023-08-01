@@ -8,7 +8,7 @@
 #include <chrono>
 #include <ratio>
 
-namespace net::tcp {
+namespace simpletcp::tcp {
 
 class TcpClient final {
     /*
@@ -56,7 +56,7 @@ public:
     DISABLE_MOVE(TcpClient);
 
     // Run in loop thread.
-    TcpClient(EventLoop* loop, SocketAddr serverAddr);
+    TcpClient(net::EventLoop* loop, net::SocketAddr serverAddr);
 
     // Run in loop thread.
     ~TcpClient();
@@ -125,15 +125,15 @@ private:
     // Help function for retry connection, it would throw exception when retry timeout.
     void retry();
 
-    EventLoop*     mpEventLoop;
-    SocketAddr          mServerAddr;
+    net::EventLoop*          mpEventLoop;
+    net::SocketAddr          mServerAddr;
     ClientState         mState; // State can only change in loop thread.
 
     TcpConnectionPtr    mConnection;
 
     // Temporary variant use for connecting to remote.
-    SocketPtr           mConnSocket;
-    ChannelPtr          mConnChannel;
+    net::SocketPtr           mConnSocket;
+    net::ChannelPtr          mConnChannel;
     std::chrono::milliseconds   mConnRetryDelay;
     std::chrono::milliseconds   mConnRandomDelay;
     static constexpr auto TCP_MAX_RETRY_TIMEOUT = std::chrono::minutes(5);

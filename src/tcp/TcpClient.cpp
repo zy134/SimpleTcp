@@ -25,8 +25,8 @@ extern "C" {
 #include <unistd.h>
 }
 
-using namespace net;
-using namespace utils;
+using namespace simpletcp;
+using namespace simpletcp::net;
 using namespace std;
 using namespace std::chrono;
 using namespace chrono_literals;
@@ -34,7 +34,7 @@ using namespace chrono_literals;
 static constexpr std::string_view UNKNOWN_CLIENT_ID = "UNKNOWN_CLIENT_ID";
 static constexpr std::string_view TAG = "TcpClient";
 
-namespace net::tcp {
+namespace simpletcp::tcp {
 
 TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr)
     : mpEventLoop(loop), mServerAddr(std::move(serverAddr))
@@ -44,7 +44,9 @@ TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr)
     mpEventLoop->assertInLoopThread();
 
     // Every client has a random delay prefix.
-    std::default_random_engine e(chrono::system_clock::now().time_since_epoch().count());
+    std::default_random_engine e(
+        static_cast<unsigned long>(chrono::system_clock::now().time_since_epoch().count())
+    );
     std::uniform_int_distribution<uint32_t> u { 0, 500 };
     mConnRandomDelay = chrono::milliseconds{ u(e) };
 
@@ -196,7 +198,7 @@ void TcpClient::doConnected() {
         });
     });
     // Create new idenfication for TcpClient.
-    mIdentification = fmt::format("{:016d}_{:05d}_{}_{}"
+    mIdentification = simpletcp::format("{:016d}_{:05d}_{}_{}"
         , steady_clock::now().time_since_epoch().count()
         , gettid()
         , mConnection->getLocalAddr().mPort

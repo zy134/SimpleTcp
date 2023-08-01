@@ -3,16 +3,14 @@
 #include "net/TimerQueue.h"
 
 #include <chrono>
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
-#include <mutex>
 #include <vector>
 
-namespace net {
+namespace simpletcp::net {
 
 class Channel;
 class Epoller;

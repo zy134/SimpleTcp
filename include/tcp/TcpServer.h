@@ -10,7 +10,7 @@
 #include <functional>
 #include <unordered_set>
 
-namespace net::tcp {
+namespace simpletcp::tcp {
 
 class TcpServer final {
 public:
@@ -71,7 +71,7 @@ private:
     // Id is a string like: [timestamp_tid_port_ip]
     std::string         mIdentification;
 
-    std::unordered_set<net::tcp::TcpConnectionPtr> mConnectionSet;
+    std::unordered_set<TcpConnectionPtr> mConnectionSet;
     static constexpr auto MAX_CONNECTION_NUMS = 256;
 
     TcpConnectionCallback       mConnectionCb;

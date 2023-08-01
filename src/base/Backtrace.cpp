@@ -12,7 +12,7 @@ extern "C" {
 #include <string>
 #include <array>
 
-namespace utils {
+namespace simpletcp {
 
 std::vector<std::string> getBacktrace() {
     std::vector<std::string> result;

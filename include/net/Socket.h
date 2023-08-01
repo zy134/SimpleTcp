@@ -3,6 +3,7 @@
 #include "base/Utils.h"
 #include <algorithm>
 #include <memory>
+#include <string>
 
 extern "C" {
 #include <netdb.h>
@@ -10,7 +11,7 @@ extern "C" {
 #include <sys/socket.h>
 }
 
-namespace net {
+namespace simpletcp::net {
 
 enum class IP_PROTOCOL {
     IPv4,
@@ -94,13 +95,5 @@ private:
 
 
 using SocketPtr = Socket::SocketPtr;
-
-inline auto operator<=>(const SocketPtr& lhs, const int fd) noexcept {
-    return lhs->getFd()<=>fd;
-};
-
-inline auto operator<=>(const SocketPtr& lhs, const SocketPtr& rhs) noexcept {
-    return lhs->getFd()<=>rhs->getFd();
-};
 
 } // namespace net

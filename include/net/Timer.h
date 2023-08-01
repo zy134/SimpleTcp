@@ -7,7 +7,7 @@
 #include <concepts>
 #include <type_traits>
 
-namespace net {
+namespace simpletcp::net {
 
 enum class TimerType {
     Relative,

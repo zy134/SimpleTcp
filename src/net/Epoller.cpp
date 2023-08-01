@@ -28,9 +28,9 @@ static_assert(EPOLLRDHUP == POLLRDHUP,  "epoll uses same flag values as poll");
 static_assert(EPOLLERR == POLLERR,      "epoll uses same flag values as poll");
 static_assert(EPOLLHUP == POLLHUP,      "epoll uses same flag values as poll");
 
-using namespace utils;
+using namespace simpletcp;
 
-namespace net {
+namespace simpletcp::net {
 
 constexpr auto EPOLL_MAX_WAIT_NUM = 256;
 constexpr auto EPOLL_MAX_WAIT_TIMEOUT = 1000;

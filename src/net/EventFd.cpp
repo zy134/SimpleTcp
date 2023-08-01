@@ -9,9 +9,9 @@ extern "C" {
 #include <sys/eventfd.h>
 }
 
-using namespace utils;
+using namespace simpletcp;
 
-namespace net {
+namespace simpletcp::net {
 
 EventFdPtr EventFd::createEventFd() {
     auto eventFd = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);

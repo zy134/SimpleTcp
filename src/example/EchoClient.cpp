@@ -1,34 +1,21 @@
 #include "base/Log.h"
-#include "net/EventLoop.h"
-#include "net/Socket.h"
+#include "base/Jthread.h"
 #include "tcp/TcpClient.h"
-#include "tcp/TcpConnection.h"
-#include <arpa/inet.h>
-#include <cerrno>
 #include <chrono>
-#include <cstring>
-#include <exception>
 #include <iostream>
-#include <netinet/in.h>
 #include <string>
 #include <string_view>
-#include <sys/socket.h>
-#include <thread>
-#include <unistd.h>
 
-#ifdef TAG
-#undef TAG
-#endif
 static constexpr std::string_view TAG = "EchoClient";
 
-using namespace utils;
+using namespace simpletcp;
+using namespace simpletcp::net;
+using namespace simpletcp::tcp;
 using namespace std;
-using namespace net;
-using namespace net::tcp;
 
 
 const SocketAddr serverAddr {
-    .mIpAddr = "127.0.0.0",
+    .mIpAddr = "127.0.0.1",
     .mIpProtocol = IP_PROTOCOL::IPv4,
     .mPort = 8848
 };
@@ -57,7 +44,7 @@ int main() try {
     client.connect();
     LOG_INFO("start server");
 
-    auto inputThread = std::jthread([&] {
+    auto inputThread = simpletcp::jthread([&] {
         std::string input;
         while (std::getline(std::cin, input)) {
             auto guard = clientConn;

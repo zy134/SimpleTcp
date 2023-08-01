@@ -17,9 +17,9 @@ extern "C" {
 
 using namespace std;
 using namespace std::chrono;
-using namespace utils;
+using namespace simpletcp;
 
-namespace net {
+namespace simpletcp::net {
 
 TimerPtr Timer::createTimer() {
     auto timerfd = ::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);

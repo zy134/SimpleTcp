@@ -2,11 +2,13 @@
 
 #include "base/Utils.h"
 #include "net/Socket.h"
+#include <cstddef>
 #include <string_view>
 #include <string>
 #include <vector>
+#include <span>
 
-namespace net::tcp {
+namespace simpletcp::tcp {
 
 /*
  *  |-------------------=================================|-------------------|
@@ -29,16 +31,16 @@ public:
     // Read data from socket to TcpBuffer.
     // This operation may block.
     // If read error or peer socket is shutdown, this function will throw a NetworkException.
-    void readFromSocket(const SocketPtr& socket);
+    void readFromSocket(const net::SocketPtr& socket);
 
     // Write data from TcpBuffer to socket
     // This operation may block.
     // If write error, this function will throw a NetworkException.
-    void writeToSocket(const SocketPtr& socket);
+    void writeToSocket(const net::SocketPtr& socket);
 
     // Append data to the end of TcpBuffer.
     // This operation is non-block.
-    void appendToBuffer(std::string_view message);
+    void appendToBuffer(std::span<char> data);
 
     // Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
     // The size of result string may less then input size, please check it!

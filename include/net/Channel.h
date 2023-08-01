@@ -5,7 +5,7 @@
 #include <functional>
 #include <memory>
 
-namespace net {
+namespace simpletcp::net {
 
 using ChannelCbType = std::function<void ()>;
 

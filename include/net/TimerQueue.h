@@ -10,7 +10,7 @@
 #include <functional>
 #include <mutex>
 
-namespace net {
+namespace simpletcp::net {
 
 class EventLoop;
 

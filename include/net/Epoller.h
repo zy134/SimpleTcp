@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace net {
+namespace simpletcp::net {
 
 class Channel;
 

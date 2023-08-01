@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <cstring>
 #include <exception>
-#include <fmt/core.h>
 #include <iostream>
 #include <memory>
 #include <string_view>
@@ -41,7 +40,7 @@ extern "C" {
 
 }
 
-namespace utils::detail {
+namespace simpletcp::detail {
 
 // TODO: equals to page size
 constexpr size_t LOG_BUFFER_SIZE = 4096;
@@ -232,7 +231,7 @@ void LogServer::write(LogLevel level, std::string_view fmt, std::string_view tag
     auto timeSinceEpoch = std::chrono::system_clock::now().time_since_epoch().count();
     auto milliSeconds = static_cast<int>(timeSinceEpoch % (1000 * 1000 * 1000)) / 1000;
     // Format log line.
-    auto logLine = fmt::format("{:4d}-{:02d}-{:02d} {:02d}.{:02d}.{:02d}.{:06d} {:5d} {:5d} [{}][{}] {}\n"
+    auto logLine = simpletcp::format("{:4d}-{:02d}-{:02d} {:02d}.{:02d}.{:02d}.{:06d} {:5d} {:5d} [{}][{}] {}\n"
             , now.tm_year + 1900, now.tm_mon + 1, now.tm_mday
             , now.tm_hour, now.tm_min, now.tm_sec, milliSeconds
             , pid, tid
@@ -342,7 +341,7 @@ std::fstream LogServer::createLogFileStream() {
     // No need to check result. it would throw exception.
     ::gmtime_r(&t, &now);
 
-    auto filePath = fmt::format("{}/{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}.log"
+    auto filePath = simpletcp::format("{}/{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}.log"
             , DEFAULT_LOG_PATH
             , now.tm_year + 1900, now.tm_mon + 1, now.tm_mday
             , now.tm_hour, now.tm_min, now.tm_sec
@@ -394,7 +393,7 @@ void format_log_line(LogLevel level, std::string_view fmt, std::string_view tag)
 
 } // namespace utils::detail
 
-namespace utils {
+namespace simpletcp {
 
 void assertTrue(bool cond, std::string_view msg) {
 //#ifdef DEBUG_BUILD
