@@ -34,11 +34,13 @@ TcpConnectionPtr TcpConnection::createTcpConnection(net::SocketPtr&& socket, net
 TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
         : mpEventLoop(loop), mpSocket(std::move(socket)), mState(ConnState::DisConnected) {
     LOG_INFO("{}: E", __FUNCTION__);
+    LOG_INFO("{}: owner loop :{}", __FUNCTION__, static_cast<void *>(mpEventLoop));
 
     mLocalAddr = mpSocket->getLocalAddr();
     mPeerAddr = mpSocket->getPeerAddr();
 
     mpChannel = net::Channel::createChannel(mpSocket->getFd(), loop);
+    mpChannel->setChannelInfo("Connection Channel");
     mpChannel->setWriteCallback([this] () {
         handleWrite();
     });
@@ -85,7 +87,7 @@ void TcpConnection::handleRead() {
         if (mMessageCb) {
             mMessageCb(scopeGuard);
         }
-    } catch (NetworkException& e) {
+    } catch (const NetworkException& e) {
         if (mpSocket->getSocketError() == 0) {
             LOG_INFO("{} remote socket is shutdown.", __FUNCTION__);
             handleClose();

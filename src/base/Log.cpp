@@ -395,16 +395,18 @@ void format_log_line(LogLevel level, std::string_view fmt, std::string_view tag)
 
 namespace simpletcp {
 
-void assertTrue(bool cond, std::string_view msg) {
-//#ifdef DEBUG_BUILD
+void assertTrue(bool cond [[maybe_unused]], std::string_view msg [[maybe_unused]]) {
+#ifdef DEBUG_BUILD
 if (!cond) {
     printBacktrace();
     LOG_FATAL("[ASSERT] assert error: {}\n", msg);
 }
-//#endif
+#endif
 }
 
 void printBacktrace() {
+    static std::mutex gBtMutex;
+    std::lock_guard lock { gBtMutex };
     auto backtraces = getBacktrace();
     LOG_WARN("================================================================================");
     LOG_WARN("============================== Start print backtrace ===========================");

@@ -23,9 +23,12 @@ using namespace simpletcp::net;
 
 namespace simpletcp::tcp {
 
-TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue) : mpEventLoop(loop) {
+TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue, int maxThreadNum)
+    : mpEventLoop(loop), mEventLoopPool(loop, maxThreadNum) {
+    assertTrue(mpEventLoop != nullptr, "[TcpServer] loop must not be none!");
     mpEventLoop->assertInLoopThread();
-    LOG_INFO("{} +", __FUNCTION__);
+    LOG_INFO("{}: E", __FUNCTION__);
+    LOG_INFO("{}: owner loop :{}", __FUNCTION__, static_cast<void *>(mpEventLoop));
     // create listen socket.
     mpListenSocket = Socket::createTcpListenSocket(std::move(serverAddr), maxListenQueue);
     mpListenSocket->setReuseAddr(true);
@@ -34,6 +37,7 @@ TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxLi
     // create listen channel.
     mpListenChannel = Channel::createChannel(mpListenSocket->getFd(), loop);
 
+    mpListenChannel->setChannelInfo("Listen Channel");
     mpListenChannel->setReadCallback([&] {
         LOG_INFO("[ReadCallback] new client is arrived.");
         createNewConnection();
@@ -61,7 +65,7 @@ TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxLi
         , mpListenSocket->getLocalAddr().mIpAddr
     );
     LOG_INFO("{}: New Sever {}", __FUNCTION__, mIdentification);
-    LOG_INFO("{} -", __FUNCTION__);
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 TcpServer::~TcpServer() noexcept {
@@ -99,22 +103,42 @@ void TcpServer::setHighWaterMarkCallback(TcpHighWaterMarkCallback &&cb) noexcept
 // Callback for Channel::handleEvent(), so it is run in loop thread.
 void TcpServer::createNewConnection() {
     LOG_INFO("{}", __FUNCTION__);
+    if (mEventLoopPool.getLoopNums() == 0) {
+        createNewConnectionInSubLoop(mpEventLoop);
+    } else {
+        getLoop()->assertInLoopThread();
+        // Get a loop from loop pool and create new connection in new loop.
+        auto newLoop = mEventLoopPool.acquireLoop();
+        // Execute task asynchronously and wait for it to complete.
+        // Because listen fd is available now, no need to use queueInLoop to delay the task.
+        newLoop->runInLoop([this, newLoop] {
+            createNewConnectionInSubLoop(newLoop);
+        });
+    }
+}
+
+void TcpServer::createNewConnectionInSubLoop(EventLoop* newLoop) {
+    LOG_INFO("{}: E", __FUNCTION__);
+    newLoop->assertInLoopThread();
     mpEventLoop->assertInLoopThread();
     SocketPtr clientSocket;
     try {
         clientSocket = mpListenSocket->accept();
     } catch (const NetworkException& e) {
-        LOG_ERR("{}: Ignore exception: {}", e.what());
+        LOG_ERR("{}: Ignore exception: {}", __FUNCTION__, e.what());
+        throw;
     } catch (const std::exception& e) {
-        LOG_ERR("{}: {}", e.what());
+        LOG_ERR("{}: {}", __FUNCTION__, e.what());
         throw;
     }
     if (mConnectionSet.size() == MAX_CONNECTION_NUMS) {
         LOG_ERR("{}: refuse connect because connection set is full.", __FUNCTION__);
+        // Socket would be close when leave this scope.
         return ;
     }
     clientSocket->dumpSocketInfo();
-    auto newConn = TcpConnection::createTcpConnection(std::move(clientSocket), mpEventLoop);
+    // Assign a loop for new connection.
+    auto newConn = TcpConnection::createTcpConnection(std::move(clientSocket), newLoop);
 
     // Copy user callback function to new connection.
     newConn->setConnectionCallback(mConnectionCb);
@@ -122,27 +146,38 @@ void TcpServer::createNewConnection() {
     newConn->setWriteCompleteCallback(mWriteCompleteCb);
     newConn->setHighWaterMarkCallback(mHighWaterMarkCb);
 
-    // Must remove connection in loop thread.
+    // Must remove connection in loop thread of TcpServer.
     // EventLoop::poll()
+    //
     //      => handleEvent()
     //          => Channel::mCloseCb()
     //              => TcpConnection::handleClose()
     //                  => TcpConnection::mCloseCb()
     //                      => EventLoop::queueInLoop()
-    //
-    //      => ~Channel()
-    //          => EventLoop::removeChannel()
-    //              => ~Socket()
-    //                  => ~TcpConnection()
-    newConn->setCloseCallback([&] (const TcpConnectionPtr& conn) {
-        mpEventLoop->queueInLoop([&, guard = conn] {
-            guard->destroyConnection();
-            mConnectionSet.erase(guard);
-        });
+    //      => destroyConnection()
+    //          => ~Channel()
+    //              => EventLoop::removeChannel()
+    //                  => ~Socket()
+    //                      => ~TcpConnection()
+    newConn->setCloseCallback([this] (const TcpConnectionPtr& conn) {
+            // destroy connection in sub loop.
+            auto guard = conn;
+            conn->getLoop()->queueInLoop([guard, this] {
+                guard->destroyConnection();
+                // remove connection.
+                {
+                    std::lock_guard lock { mConnMutex };
+                    mConnectionSet.erase(guard);
+                }
+            });
     });
-    // TODO: check weather a run-condition occurs.
     newConn->establishConnect();
-    mConnectionSet.insert(std::move(newConn));
+
+    {
+        std::lock_guard lock { mConnMutex };
+        mConnectionSet.insert(std::move(newConn));
+    }
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 } // namespace net::tcp

@@ -10,26 +10,19 @@
 
 #include <array>
 #include <chrono>
-#include <cstdint>
 #include <ctime>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
+#include <future>
 
 extern "C" {
 #include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
-#include <sys/eventfd.h>
-#include <sys/timerfd.h>
 #include <sys/epoll.h>
 #include <poll.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 }
 
 static constexpr std::string_view TAG = "EventLoop";
@@ -52,21 +45,24 @@ namespace simpletcp::net {
 /************************************************************/
 
 static thread_local EventLoop* tCurrentLoop = nullptr;
+static thread_local int tCurrentLoopTid = -1;
 
 EventLoop::EventLoop() {
-    LOG_INFO("{}: start", __FUNCTION__);
+    LOG_INFO("{}: E", __FUNCTION__);
     assertTrue(tCurrentLoop == nullptr, "Every thread can hold only one event loop!");
     tCurrentLoop = this;
+    tCurrentLoopTid = static_cast<int>(::gettid());
 
     LOG_INFO("{}: current thread EventLoop: {}", __FUNCTION__, static_cast<void *>(this));
+    LOG_INFO("{}: loop thread :{}", __FUNCTION__, tCurrentLoopTid);
 
     try {
         mpPoller = Epoller::createEpoller();
         mpTimerQueue = TimerQueue::createTimerQueue(this);
         mpWakeupFd = EventFd::createEventFd();
         mpWakeupChannel = Channel::createChannel(mpWakeupFd->getFd(), this);
+        mpWakeupChannel->setChannelInfo("Wakeup channel");
         mpWakeupChannel->setReadCallback([&] {
-            LOG_INFO("handleRead");
             mpWakeupFd->handleRead();
         });
         mpWakeupChannel->enableRead();
@@ -74,6 +70,7 @@ EventLoop::EventLoop() {
         LOG_ERR("{}", e.what());
         printBacktrace();
         tCurrentLoop = nullptr;
+        tCurrentLoopTid = -1;
         throw;
     }
 
@@ -81,20 +78,21 @@ EventLoop::EventLoop() {
     mIsExit = true;
     mIsLoopingNow = false;
     mIsDoPendingWorks = false;
-    LOG_INFO("{}: end", __FUNCTION__);
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 EventLoop::~EventLoop() {
     assertInLoopThread();
     // Restore thread state.
-    LOG_INFO("{}: start", __FUNCTION__);
+    LOG_INFO("{}: E", __FUNCTION__);
     LOG_INFO("{}: current thread EventLoop: {}", __FUNCTION__, static_cast<void *>(this));
     mpWakeupChannel = nullptr;
     mpWakeupFd = nullptr;
     mpTimerQueue = nullptr;
     mpPoller = nullptr;
     tCurrentLoop = nullptr;
-    LOG_INFO("{}: end", __FUNCTION__);
+    tCurrentLoopTid = -1;
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 void EventLoop::addChannel(Channel *channel) {
@@ -120,7 +118,7 @@ void EventLoop::updateChannel(Channel *channel) {
 }
 
 void EventLoop::startLoop() {
-    LOG_INFO("{} start", __FUNCTION__);
+    LOG_INFO("{}: E", __FUNCTION__);
     assertInLoopThread();
     mIsExit = false;
     [[likely]]
@@ -134,8 +132,9 @@ void EventLoop::startLoop() {
         }
         for (auto* channel : activeChannels) {
             mpCurrentChannel = channel;
-            LOG_DEBUG("{}: current channel {}. fd {}"
-                    , __FUNCTION__, static_cast<void *>(mpCurrentChannel), mpCurrentChannel->getFd());
+            LOG_DEBUG("{}: current channel({}), fd({}), info({})"
+                    , __FUNCTION__, static_cast<void *>(mpCurrentChannel)
+                    , mpCurrentChannel->getFd(), mpCurrentChannel->getInfo());
             channel->handleEvent();
             mpCurrentChannel = nullptr;
         }
@@ -143,12 +142,11 @@ void EventLoop::startLoop() {
         // Do pending tasks after loop.
         doPendingTasks();
     }
-    LOG_INFO("{} end", __FUNCTION__);
+    LOG_INFO("{}: X", __FUNCTION__);
 }
 
 void EventLoop::quitLoop() {
     LOG_INFO("{}", __FUNCTION__);
-    // assertInLoopThread();
     mIsExit = true;
     // Wakeup loop if not in loop thread.
     if (!isInLoopThread()) {
@@ -157,22 +155,24 @@ void EventLoop::quitLoop() {
 }
 
 void EventLoop::queueInLoop(std::function<void ()>&& cb) {
-    if (isInLoopThread()) {
-        mPendingTasks.emplace_back(std::move(cb));
-    } else {
-        std::lock_guard lock { mMutex };
-        mPendingTasks.emplace_back(std::move(cb));
-    }
-    if (!isInLoopThread() || mIsDoPendingWorks) {
-        wakeup();
-    }
+    std::lock_guard lock { mMutex };
+    mPendingTasks.emplace_back(std::move(cb));
+    wakeup();
 }
 
 void EventLoop::runInLoop(std::function<void ()>&& cb) {
+    TRACE();
     if (isInLoopThread()) {
         cb();
     } else {
-        queueInLoop(std::move(cb));
+        auto task = std::make_shared<std::packaged_task<void()>>([cb = std::move(cb)] {
+            cb();
+        });
+        auto fu = task->get_future();
+        queueInLoop([task] {
+            (*task)();
+        });
+        fu.wait();
     }
 }
 
@@ -194,13 +194,16 @@ void EventLoop::removeTimer(TimerId timerId) {
     LOG_DEBUG("{} X", __FUNCTION__);
 }
 
-bool EventLoop::isInLoopThread() {
+bool EventLoop::isInLoopThread() const noexcept {
     return (tCurrentLoop != nullptr);
 }
 
+int EventLoop::getLoopTid() const noexcept {
+    return static_cast<int>(tCurrentLoopTid);
+}
+
 void EventLoop::assertInLoopThread() {
-//#ifdef DEBUG_BUILD
-#if 1
+#ifdef DEBUG_BUILD
     if (!isInLoopThread()) {
         LOG_FATAL("assertInLoopThread failed!");
     }
@@ -215,12 +218,12 @@ void EventLoop::wakeup() {
 // TODO : Use thread-pool to complete pending tasks.
 void EventLoop::doPendingTasks() {
     LOG_DEBUG("{} E", __FUNCTION__);
+    mIsDoPendingWorks = true;
     std::vector<std::function<void ()>> pendingTasks;
     {
         std::lock_guard lock { mMutex };
         std::swap(pendingTasks, mPendingTasks);
     }
-    mIsDoPendingWorks = true;
     LOG_DEBUG("{} :pendingTasks count: {}", __FUNCTION__, pendingTasks.size());
     for (auto&& task : pendingTasks) {
         task();

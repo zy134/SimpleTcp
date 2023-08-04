@@ -35,9 +35,9 @@ namespace simpletcp::net {
 /*********************** Channel ****************************/
 /************************************************************/
 
-const auto CHANNEL_READ_EVENT = EPOLLIN | EPOLLPRI;
-const auto CHANNEL_WRITE_EVENT = EPOLLOUT;
-const auto CHANNEL_NONE_EVENT = 0;
+inline constexpr auto CHANNEL_READ_EVENT = EPOLLIN | EPOLLPRI;
+inline constexpr auto CHANNEL_WRITE_EVENT = EPOLLOUT;
+inline constexpr auto CHANNEL_NONE_EVENT = 0;
 
 Channel::Channel(int fd, EventLoop* loop, ChannelPriority priority)
     :mpEventLoop(loop), mFd(fd), mPriority(priority)

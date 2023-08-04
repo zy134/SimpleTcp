@@ -119,7 +119,7 @@ SocketPtr Socket::createTcpClientSocket(SocketAddr&& serverSocketAddr) {
     result->setLocalAddr(serverSocketAddr.mIpProtocol);
     result->setPeerAddr(std::move(serverSocketAddr));
     result->mIsTCPSocket = true;
-    result->mIsUDPtenSocket = false;
+    result->mIsUDPSocket = false;
     return result;
 }
 
@@ -137,7 +137,7 @@ SocketPtr Socket::createTcpListenSocket(SocketAddr&& serverSocketAddr, int maxLi
     result->mIsListenSocket = true;
     result->mMaxListenQueue = maxListenQueue;
     result->mIsTCPSocket = true;
-    result->mIsUDPtenSocket = false;
+    result->mIsUDPSocket = false;
     result->mLocalAddr.mPort = serverSocketAddr.mPort;
     result->mLocalAddr.mIpProtocol = serverSocketAddr.mIpProtocol;
     return result;

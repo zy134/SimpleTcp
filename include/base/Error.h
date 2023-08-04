@@ -20,32 +20,11 @@ extern "C" {
 
 namespace simpletcp {
 
-enum class ErrorCode : int32_t {
-    Success = 0,
-    InvalidArgument,
-    BadResult,
-    OpNotAllowed,
-    UnknownError,
-};
-
-// NormalException, which can be handled.
-class NormalException : public std::runtime_error {
-public:
-    NormalException(const std::string& errMsg, ErrorCode errCode)
-        : std::runtime_error(errMsg), mErrCode(errCode) {}
-
-    [[nodiscard]]
-    ErrorCode getErr() const noexcept { return mErrCode; }
-
-private:
-    ErrorCode mErrCode;
-};
-
 // NetworkException, wrapper of socket error.
-class NetworkException : public std::runtime_error {
+class NetworkException : public std::system_error {
 public:
-    NetworkException(std::string errMsg, int errCode)
-        : std::runtime_error(errMsg.append(gai_strerror(errCode))), mErrCode(errCode) {}
+    NetworkException(const std::string& errMsg, int errCode)
+        : std::system_error(errCode, std::system_category(), errMsg), mErrCode(errCode) {}
 
     [[nodiscard]]
     int getNetErr() const noexcept { return mErrCode; }
@@ -57,7 +36,7 @@ private:
 class SystemException : public std::system_error {
 public:
     SystemException(const std::string& errMsg)
-        : std::system_error(errno, std::system_category(), errMsg), mErrCode(errno) {}
+        : std::system_error(errno, std::generic_category(), errMsg), mErrCode(errno) {}
 
     [[nodiscard]]
     int getSysErr() const noexcept { return mErrCode; }

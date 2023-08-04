@@ -35,6 +35,8 @@ public:
 
     void handleEvent();
 
+    void setChannelInfo(std::string s) { mChannelInfo = std::move(s); }
+
     void setWriteCallback(ChannelCbType&& cb) noexcept { mWriteCb = std::move(cb); }
 
     void setReadCallback(ChannelCbType&& cb) noexcept { mReadCb = std::move(cb); }
@@ -66,6 +68,8 @@ public:
     [[nodiscard]]
     auto getPriority() const noexcept { return mPriority; }
 
+    [[nodiscard]]
+    auto getInfo() const noexcept { return mChannelInfo; }
 private:
     Channel(int fd, EventLoop* loop, ChannelPriority priority);
 
@@ -80,6 +84,7 @@ private:
     uint32_t        mRevent;
     int             mFd;
     ChannelPriority mPriority;
+    std::string     mChannelInfo;
 };
 
 using ChannelPtr = std::unique_ptr<Channel>;

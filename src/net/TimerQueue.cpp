@@ -40,6 +40,7 @@ TimerId TimerQueue::addOneshotTimer(TimerCallback&& cb, TimerType type, std::chr
         mpEventloop->queueInLoop([this, newTimer, newId, cb = std::move(cb)] () mutable {
             // Create new channel must run in loop thread.
             auto newChannel = net::Channel::createChannel(newTimer->getFd(), mpEventloop, ChannelPriority::High);
+            newChannel->setChannelInfo("Oneshot timer");
             newChannel->setReadCallback([this, newTimer, newId, cb = std::move(cb)] () {
                 cb();
                 newTimer->handleRead();
@@ -59,9 +60,6 @@ TimerId TimerQueue::addOneshotTimer(TimerCallback&& cb, TimerType type, std::chr
             mTimerMap.emplace(newId, std::move(newTimerStruct));
         });
         return newId;
-    } catch (NormalException& e) {
-        LOG_ERR("{}: {}", __FUNCTION__, e.what());
-        return INVALID_TIMER_ID;
     } catch (SystemException& e) {
         LOG_ERR("{}: {}", __FUNCTION__, e.what());
         return INVALID_TIMER_ID;
@@ -78,6 +76,7 @@ TimerId TimerQueue::addRepeatingTimer(TimerCallback&& cb, TimerType type, std::c
         mpEventloop->queueInLoop([this, newTimer, newId, cb = std::move(cb)] () mutable {
             // Create new channel must run in loop thread.
             auto newChannel = net::Channel::createChannel(newTimer->getFd(), mpEventloop, ChannelPriority::High);
+            newChannel->setChannelInfo("Repeating timer");
             newChannel->setReadCallback([newTimer, cb = std::move(cb)] () {
                 newTimer->handleRead();
                 cb();
@@ -96,9 +95,6 @@ TimerId TimerQueue::addRepeatingTimer(TimerCallback&& cb, TimerType type, std::c
             mTimerMap.emplace(newId, std::move(newTimerStruct));
         });
         return newId;
-    } catch (NormalException& e) {
-        LOG_ERR("{}: {}", __FUNCTION__, e.what());
-        return INVALID_TIMER_ID;
     } catch (SystemException& e) {
         LOG_ERR("{}: {}", __FUNCTION__, e.what());
         return INVALID_TIMER_ID;

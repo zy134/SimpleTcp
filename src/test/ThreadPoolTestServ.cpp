@@ -3,8 +3,9 @@
 #include "tcp/TcpServer.h"
 #include <exception>
 #include <iostream>
+#include <unistd.h>
 
-static constexpr std::string_view TAG = "EchoServer";
+static constexpr std::string_view TAG = "ThreadPoolTestServ";
 
 using namespace simpletcp;
 using namespace simpletcp::net;
@@ -30,13 +31,6 @@ static void onConnection(const TcpConnectionPtr& conn) {
     } else {
         LOG_INFO("{}: disconnected!", __FUNCTION__);
     }
-    if (conn->isConnected()) {
-        timer = loop.runEvery([] {
-            LOG_INFO("Test Timer");
-        }, 3s);
-    } else {
-        loop.removeTimer(timer);
-    }
 }
 
 static void onMessage(const TcpConnectionPtr& conn) {
@@ -47,11 +41,12 @@ static void onMessage(const TcpConnectionPtr& conn) {
 }
 
 int main() try {
-    TcpServer server(&loop, serverAddr, MAX_LISTEN_QUEUE, 0);
+    TcpServer server(&loop, serverAddr, MAX_LISTEN_QUEUE, 4);
     server.setConnectionCallback(onConnection);
     server.setMessageCallback(onMessage);
     server.start();
     LOG_INFO("start server");
+    std::cerr << "[ThreadPoolTestServ] start in process " << getpid() << std::endl;
     loop.startLoop();
 } catch (std::exception &e) {
     LOG_ERR("{}: {}", __FUNCTION__, e.what());

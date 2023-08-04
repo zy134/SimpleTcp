@@ -86,7 +86,7 @@ private:
     int         mFd;
     bool        mIsListenSocket;
     bool        mIsTCPSocket;
-    bool        mIsUDPtenSocket;
+    bool        mIsUDPSocket;
     int         mMaxListenQueue;
     SocketAddr  mLocalAddr;
     SocketAddr  mPeerAddr;

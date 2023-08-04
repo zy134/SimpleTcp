@@ -69,6 +69,15 @@ public:
      */
     void queueInLoop(std::function<void()>&& cb);
 
+    /**
+     * @brief runInLoop : User interface, invoke callback in specific loop thread, may block current thread.
+     *                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     *                    The main difference of queueInLoop and runInLoop is runInLoop would wait
+     *                    for the callback function to complete.
+     *                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     *
+     * @param cb: 
+     */
     void runInLoop(std::function<void()>&& cb);
 
     /**
@@ -100,7 +109,11 @@ public:
      */
     void assertInLoopThread();
 
-    bool isInLoopThread();
+    [[nodiscard]]
+    bool isInLoopThread() const noexcept;
+
+    [[nodiscard]]
+    int getLoopTid() const noexcept;
 
 private:
     // atomic variant

@@ -84,7 +84,7 @@ private:
     bool                        mExited;
     std::mutex                  mMutex;
     std::condition_variable     mCond;
-    std::vector<base::jthread>  mWorkers;
+    std::vector<simpletcp::jthread>  mWorkers;
     std::list<ThreadTaskType>   mTasks;
 };
 

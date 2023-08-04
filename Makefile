@@ -19,6 +19,7 @@ BASE_SOURCE_FILES       := $(wildcard $(SOURCE_PATH)/base/*.cpp)
 NET_SOURCE_FILES        := $(wildcard $(SOURCE_PATH)/net/*.cpp)
 TCP_SOURCE_FILES        := $(wildcard $(SOURCE_PATH)/tcp/*.cpp)
 EXAMPLE_SOURCE_FILES    := $(wildcard $(SOURCE_PATH)/example/*.cpp)
+TEST_SOURCE_FILES       := $(wildcard $(SOURCE_PATH)/test/*.cpp)
 
 ################################################################################################
 # Set target objects
@@ -26,13 +27,14 @@ BASE_OBJS   := $(patsubst $(SOURCE_PATH)/base/%.cpp, $(BUILD_PATH)/base/%.o, $(B
 NET_OBJS    := $(patsubst $(SOURCE_PATH)/net/%.cpp, $(BUILD_PATH)/net/%.o, $(NET_SOURCE_FILES))
 TCP_OBJS    := $(patsubst $(SOURCE_PATH)/tcp/%.cpp, $(BUILD_PATH)/tcp/%.o, $(TCP_SOURCE_FILES))
 EXAMPLE_OBJS:= $(patsubst $(SOURCE_PATH)/example/%.cpp, $(BUILD_PATH)/example/%, $(EXAMPLE_SOURCE_FILES))
+TEST_OBJS   := $(patsubst $(SOURCE_PATH)/test/%.cpp, $(BUILD_PATH)/test/%, $(TEST_SOURCE_FILES))
 
 TCP_MODULE  := $(BUILD_PATH)/lib/libMyTcp.a
 
 ################################################################################################
 # Set compile command and compile flags.
 CC       := gcc
-CXX      := clang++
+CXX      := g++
 CFLAGS   :=
 CPPFLAGS :=
 
@@ -58,16 +60,19 @@ endif
 ifeq ($(CXX),clang++)
     # set _LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS as true to enable thread safety ananotation in libc++.
     DEBUG_FLAGS += -stdlib=libc++ -Wthread-safety -D_LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS=true
+    # try-catch scope may raise alloc_dealloc_mismatch in clang++, so disable it.
+    $(shell export ASAN_OPTIONS=alloc_dealloc_mismatch=0)
 endif
 # address sanitizer flags
-# ASAN_FLAGS := -fsanitize=address -fsanitize=leak -fsanitize=undefined
-# DEBUG_FLAGS += $(ASAN_FLAGS)
+ifeq ($(ENABLE_ASAN),true)
+    ASAN_FLAGS := -fsanitize=address -fsanitize=leak -fsanitize=undefined
+    DEBUG_FLAGS += $(ASAN_FLAGS)
+endif
 
 ################################################################################################
 # compile flag for release version
 ################################################################################################
 RELEASE_FLAGS := -O2 -DRELEASE_BUILD=1 -DDEFAULT_LOG_LEVEL=2
-
 
 # default, build debug version.
 ifeq ($(RELEASE_BUILD),true)
@@ -80,8 +85,7 @@ endif
 
 ################################################################################################
 # set link flasg for external librarys.
-# TODO: libc++ can not work with libfmt, Why?
-LINKFLAGS += $(TCP_MODULE) -lfmt
+LINKFLAGS += $(TCP_MODULE)
 
 ################################################################################################
 # Set make targets.
@@ -99,6 +103,7 @@ config: clean
 	mkdir $(BUILD_PATH)/net
 	mkdir $(BUILD_PATH)/tcp
 	mkdir $(BUILD_PATH)/example
+	mkdir $(BUILD_PATH)/test
 	mkdir $(BUILD_PATH)/lib
 	touch $(BUILD_LOG)
 	chmod 0777 $(BUILD_LOG)
@@ -107,11 +112,13 @@ config: clean
 	@ echo $(NET_SOURCE_FILES)
 	@ echo $(TCP_SOURCE_FILES)
 	@ echo $(EXAMPLE_SOURCE_FILES)
+	@ echo $(TEST_SOURCE_FILES)
 	@ echo "=========================== Object files ============================"
 	@ echo "base objects: $(notdir $(BASE_OBJS))"
 	@ echo "network objects: $(notdir $(NET_OBJS))"
 	@ echo "TCP objects: $(notdir $(TCP_OBJS))"
 	@ echo "example objects: $(notdir $(EXAMPLE_OBJS))"
+	@ echo "test objects: $(notdir $(TEST_OBJS))"
 	@ echo "build version: << $(BUILD_VER) >>"
 	@ echo "========================== static library ==========================="
 	@ echo "tcp: $(notdir $(TCP_MODULE))"
@@ -154,6 +161,21 @@ $(TCP_MODULE): $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS)
 ################################################################################################
 .PHONY:library
 library: $(TCP_MODULE)
+
+################################################################################################
+.PHONY:test
+test: $(TEST_OBJS)
+
+$(TEST_OBJS): $(TEST_SOURCE_FILES) $(TCP_MODULE)
+	@ current_time=`date +"%x %X:%3N"`;\
+		echo "[$${current_time}][link   ] build test object: $(notdir $@)";\
+		cd $(BUILD_PATH)/test; \
+		$(CXX) $(CPPFLAGS) $(SOURCE_PATH)/test/$(notdir $@).cpp $(LINKFLAGS) -o $(BUILD_PATH)/test/$(notdir $@); \
+		current_time=`date +"%x %X:%3N"`;\
+		END_TIME=`cat /proc/uptime | awk -F "." '{print $$1}'`; \
+		time_interval=`expr $${END_TIME} - $(START_TIME)`; \
+		runtime=`date -u -d @$${time_interval} +%Hh:%Mm:%Ss`; \
+		echo "[$${current_time}][runtime] success build test, total run time: $${runtime}"
 
 ################################################################################################
 $(EXAMPLE_OBJS): $(EXAMPLE_SOURCE_FILES) $(TCP_MODULE)

@@ -40,6 +40,7 @@ TcpClient::TcpClient(EventLoop* loop, SocketAddr serverAddr)
     : mpEventLoop(loop), mServerAddr(std::move(serverAddr))
       , mState(ClientState::Disconnect), mConnRetryDelay(TCP_INIT_RETRY_TIMEOUT), mIdentification(UNKNOWN_CLIENT_ID)
 {
+    assertTrue(mpEventLoop != nullptr, "[TcpClient] loop must not be none!");
     LOG_INFO("{}: E", __FUNCTION__);
     mpEventLoop->assertInLoopThread();
 
@@ -147,6 +148,7 @@ void TcpClient::doConnecting() {
         // Connect is not done, use a channel to monitor the state of socket.
         LOG_INFO("{} : connect in progress.", __FUNCTION__);
         mConnChannel = Channel::createChannel(mConnSocket->getFd(), mpEventLoop);
+        mConnChannel->setChannelInfo("Client temp channel");
         mConnChannel->setErrorCallback([this] {
             auto err = mConnSocket->getSocketError();
             LOG_ERR("{} : connect error({}) message({})", __FUNCTION__, err, strerror(err));

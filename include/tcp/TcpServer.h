@@ -5,6 +5,7 @@
 #include "net/Socket.h"
 #include "net/EventFd.h"
 #include "net/EventLoop.h"
+#include "net/EventLoopPool.h"
 #include "tcp/TcpConnection.h"
 
 #include <functional>
@@ -17,7 +18,7 @@ public:
     DISABLE_COPY(TcpServer);
     DISABLE_MOVE(TcpServer);
 
-    TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue);
+    TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue, int maxThreadNum);
     ~TcpServer() noexcept;
 
     /**
@@ -62,15 +63,26 @@ public:
     [[nodiscard]]
     std::string_view getId() const noexcept { return mIdentification; }
 
+
+    /**
+     * @brief getLoop : Get owner loop for TcpServer.
+     *
+     * @return 
+     */
+    [[nodiscard]]
+    net::EventLoop* getLoop() const noexcept { return mpEventLoop; }
+
 private:
     net::EventLoop*     mpEventLoop;
     net::SocketPtr      mpListenSocket;
     net::ChannelPtr     mpListenChannel;
+    net::EventLoopPool  mEventLoopPool;
 
     // The idenfication of server port.
     // Id is a string like: [timestamp_tid_port_ip]
     std::string         mIdentification;
 
+    std::mutex mConnMutex;
     std::unordered_set<TcpConnectionPtr> mConnectionSet;
     static constexpr auto MAX_CONNECTION_NUMS = 256;
 
@@ -80,6 +92,7 @@ private:
     TcpHighWaterMarkCallback    mHighWaterMarkCb;
 
     void createNewConnection();
+    void createNewConnectionInSubLoop(net::EventLoop* loop);
 };
 
 } // namespace net::tcp

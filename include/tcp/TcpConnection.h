@@ -83,7 +83,7 @@ public:
      *
      * @return result string.
      */
-    std::string read(size_t size) noexcept;
+    std::string read(size_t size) noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief readAll : Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
@@ -91,7 +91,7 @@ public:
      *                  Thread-safety
      * @return result string.
      */
-    std::string readAll() noexcept;
+    std::string readAll() noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief extract : Return a string which read from TcpBuffer, and extract data from TcpBuffer.
@@ -101,7 +101,7 @@ public:
      *
      * @return result string.
      */
-    std::string extract(size_t size) noexcept;
+    std::string extract(size_t size) noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief extract : Return a string which read from TcpBuffer, and extract data from TcpBuffer.
@@ -111,14 +111,14 @@ public:
      *
      * @return result string.
      */
-    std::string extractAll() noexcept;
+    std::string extractAll() noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief getBufferSize : Get the size of bytes store in mRecvBuffer.
      *
      * @return
      */
-    auto getBufferSize() noexcept {
+    auto getBufferSize() noexcept EXCLUDES(mRecvMutex) {
         std::lock_guard lock { mRecvMutex };
         return mRecvBuffer.size();
     }
@@ -159,6 +159,14 @@ public:
 
     void dumpSocketInfo() const noexcept { mpSocket->dumpSocketInfo(); }
 
+    /**
+     * @brief getLoop : Get owner loop for TcpConnection.
+     *
+     * @return 
+     */
+    [[nodiscard]]
+    net::EventLoop* getLoop() const noexcept { return mpEventLoop; }
+
 private:
     net::EventLoop*             mpEventLoop;
     net::SocketPtr              mpSocket;
@@ -175,18 +183,18 @@ private:
     ConnState                   mState;
 
     std::mutex                  mRecvMutex;
-    TcpBuffer                   mRecvBuffer;
+    TcpBuffer                   mRecvBuffer GUARDED_BY(mRecvMutex);
     TcpBuffer                   mSendBuffer;
 
     TcpConnection(net::SocketPtr&& socket, net::EventLoop* loop);
 
-    void handleRead();
+    void handleRead() EXCLUDES(mRecvMutex);
 
-    void handleWrite();
+    void handleWrite() EXCLUDES(mRecvMutex);
 
-    void handleError();
+    void handleError() EXCLUDES(mRecvMutex);
 
-    void handleClose();
+    void handleClose() EXCLUDES(mRecvMutex);
 
     void sendInLoop(std::span<char> data);
 

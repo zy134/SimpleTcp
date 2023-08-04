@@ -62,7 +62,7 @@ int main(int argc, char** argv) try {
     });
 
     loop.startLoop();
-} catch (std::exception &e) {
+} catch (const std::exception &e) {
     LOG_ERR("{}: {}", __FUNCTION__, e.what());
     throw;
 }
