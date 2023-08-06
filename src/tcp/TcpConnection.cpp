@@ -61,7 +61,8 @@ TcpConnection::~TcpConnection() noexcept {
     if (mState == ConnState::Connected || mState == ConnState::HalfClosed) {
         mState = ConnState::DisConnected;
         destroyConnection();
-        LOG_INFO("{}: The connection is not shutdown, but dtor has invoked...", __FUNCTION__);
+        LOG_ERR("{}: The connection is not shutdown, but dtor has invoked...", __FUNCTION__);
+        LOG_ERR("{}: current exceptions {}", __FUNCTION__, std::uncaught_exceptions());
     }
     LOG_INFO("{}: X", __FUNCTION__);
 }
@@ -163,6 +164,30 @@ void TcpConnection::send(std::span<char> data) {
     }
 }
 
+void TcpConnection::send(std::vector<char>&& data) {
+    // In loop thread, write to buffer directly.
+    if (mpEventLoop->isInLoopThread()) {
+        sendInLoop(data);
+    } else {
+    // Not in loop thread, move the input buffer and send it to loop thread.
+        mpEventLoop->queueInLoop([data = std::move(data), this] () mutable {
+            sendInLoop(data);
+        });
+    }
+}
+
+void TcpConnection::send(std::string&& data) {
+    // In loop thread, write to buffer directly.
+    if (mpEventLoop->isInLoopThread()) {
+        sendInLoop(data);
+    } else {
+    // Not in loop thread, move the input buffer and send it to loop thread.
+        mpEventLoop->queueInLoop([data = std::move(data), this] () mutable {
+            sendInLoop(data);
+        });
+    }
+}
+
 void TcpConnection::sendInLoop(std::span<char> data) {
     TRACE();
     mpEventLoop->assertInLoopThread();
@@ -187,16 +212,17 @@ void TcpConnection::sendInLoop(std::span<char> data) {
     }
 }
 
-std::string TcpConnection::read(size_t size) noexcept {
+std::string_view TcpConnection::read(size_t size) noexcept {
     TRACE();
     std::lock_guard lock { mRecvMutex };
     return mRecvBuffer.read(size);
 }
 
-std::string TcpConnection::readAll() noexcept {
+std::string_view TcpConnection::readAll() noexcept {
     TRACE();
     std::lock_guard lock { mRecvMutex };
-    return mRecvBuffer.readAll();
+    auto size = mRecvBuffer.size();
+    return mRecvBuffer.read(size);
 }
 
 std::string TcpConnection::extract(size_t size) noexcept {
@@ -252,14 +278,18 @@ void TcpConnection::shutdownConnection() noexcept {
         try {
             LOG_INFO("shutdownConnection in loop thread");
             if (mState == ConnState::DisConnected) {
-                LOG_WARN("{}: connection is already closed.", __FUNCTION__);
+                LOG_WARN("shutdownConnection: connection is already closed.");
                 return ;
+            }
+            if (mSendBuffer.size() != 0) {
+                LOG_INFO("shutdownConnection: write buffer before shutdown");
+                mSendBuffer.writeToSocket(mpSocket);
             }
             mState = ConnState::HalfClosed;
             mpChannel->disableWrite();
             mpSocket->shutdown();
         } catch (const std::exception& e) {
-            LOG_ERR("{}: {}", __FUNCTION__, e.what());
+            LOG_ERR("shutdownConnection: {}", e.what());
         }
     });
 }

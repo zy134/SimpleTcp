@@ -244,21 +244,21 @@ void Socket::setNonDelay(bool enable) {
 void Socket::setKeepAlive(bool enable) {
     int flag = enable ? 1 : 0;
     if (auto res = ::setsockopt(getFd(), SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag)); res != 0) {
-        throw NetworkException("failed to setKeepAlive", res);
+        throw NetworkException("failed to setKeepAlive", getSocketError());
     }
 }
 
 void Socket::setReuseAddr(bool enable) {
     int flag = enable ? 1 : 0;
     if (auto res = ::setsockopt(getFd(), SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)); res != 0) {
-        throw NetworkException("failed to setReuseAddr", res);
+        throw NetworkException("failed to setReuseAddr", getSocketError());
     }
 }
 
 void Socket::setReusePort(bool enable) {
     int flag = enable ? 1 : 0;
     if (auto res = ::setsockopt(getFd(), SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag)); res != 0) {
-        throw NetworkException("failed to setReusePort", res);
+        throw NetworkException("failed to setReusePort", getSocketError());
     }
 }
 

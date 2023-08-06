@@ -21,7 +21,7 @@ constexpr auto MAX_LISTEN_QUEUE = 100;
 
 class ChatServer {
 public:
-    ChatServer(EventLoop* loop): mServ(loop, chatServerAddr, MAX_LISTEN_QUEUE, 0) {
+    ChatServer(EventLoop* loop): mServ( { loop, chatServerAddr, MAX_LISTEN_QUEUE, 0 } ) {
         mServ.setConnectionCallback([this] (const TcpConnectionPtr& conn) {
             onConnection(conn);
         });

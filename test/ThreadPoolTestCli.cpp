@@ -30,7 +30,7 @@ static void onMessage(const TcpConnectionPtr& conn) {
 
 int main() try {
     // create loop
-    std::vector<simpletcp::jthread> clients;
+    std::vector<simpletcp::utils::Jthread> clients;
     std::map<simpletcp::tcp::TcpConnectionPtr, std::string> connections;
     std::mutex mu;
 

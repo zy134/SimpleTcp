@@ -12,6 +12,7 @@
 #include <vector>
 
 extern "C" {
+#include <signal.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/poll.h>
@@ -44,6 +45,12 @@ std::string static transEventToStr(uint32_t event) {
     if (event & EPOLLRDHUP) { result.append("RDHUP "); }
     if (event & EPOLLPRI) { result.append("PRI "); }
     return result;
+}
+
+// Ignore sig pipe.
+[[gnu::constructor]]
+static void ignoreSigpipe() {
+    ::signal(SIGPIPE, SIG_IGN);
 }
 
 Epoller::~Epoller() {

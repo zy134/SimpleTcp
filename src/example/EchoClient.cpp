@@ -44,7 +44,7 @@ int main() try {
     client.connect();
     LOG_INFO("start server");
 
-    auto inputThread = simpletcp::jthread([&] {
+    auto inputThread = simpletcp::utils::Jthread([&] {
         std::string input;
         while (std::getline(std::cin, input)) {
             auto guard = clientConn;

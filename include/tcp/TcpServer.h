@@ -13,12 +13,19 @@
 
 namespace simpletcp::tcp {
 
+struct TcpServerArgs {
+    net::EventLoop* loop;
+    net::SocketAddr serverAddr;
+    int maxListenQueue;
+    int maxThreadNum = 0;
+};
+
 class TcpServer final {
 public:
     DISABLE_COPY(TcpServer);
     DISABLE_MOVE(TcpServer);
 
-    TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue, int maxThreadNum);
+    TcpServer(TcpServerArgs args);
     ~TcpServer() noexcept;
 
     /**

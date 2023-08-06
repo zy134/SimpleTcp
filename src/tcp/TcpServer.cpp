@@ -23,19 +23,20 @@ using namespace simpletcp::net;
 
 namespace simpletcp::tcp {
 
-TcpServer::TcpServer(net::EventLoop* loop, net::SocketAddr serverAddr, int maxListenQueue, int maxThreadNum)
-    : mpEventLoop(loop), mEventLoopPool(loop, maxThreadNum) {
+TcpServer::TcpServer(TcpServerArgs args)
+    : mpEventLoop(args.loop), mEventLoopPool(args.loop, args.maxThreadNum) {
     assertTrue(mpEventLoop != nullptr, "[TcpServer] loop must not be none!");
+    assertTrue(args.maxListenQueue > 0, "[TcpServer] maxListenQueue must bigger than 0");
     mpEventLoop->assertInLoopThread();
     LOG_INFO("{}: E", __FUNCTION__);
     LOG_INFO("{}: owner loop :{}", __FUNCTION__, static_cast<void *>(mpEventLoop));
     // create listen socket.
-    mpListenSocket = Socket::createTcpListenSocket(std::move(serverAddr), maxListenQueue);
+    mpListenSocket = Socket::createTcpListenSocket(std::move(args.serverAddr), args.maxListenQueue);
     mpListenSocket->setReuseAddr(true);
     mpListenSocket->setReusePort(true);
 
     // create listen channel.
-    mpListenChannel = Channel::createChannel(mpListenSocket->getFd(), loop);
+    mpListenChannel = Channel::createChannel(mpListenSocket->getFd(), args.loop);
 
     mpListenChannel->setChannelInfo("Listen Channel");
     mpListenChannel->setReadCallback([&] {
@@ -103,10 +104,10 @@ void TcpServer::setHighWaterMarkCallback(TcpHighWaterMarkCallback &&cb) noexcept
 // Callback for Channel::handleEvent(), so it is run in loop thread.
 void TcpServer::createNewConnection() {
     LOG_INFO("{}", __FUNCTION__);
+    getLoop()->assertInLoopThread();
     if (mEventLoopPool.getLoopNums() == 0) {
         createNewConnectionInSubLoop(mpEventLoop);
     } else {
-        getLoop()->assertInLoopThread();
         // Get a loop from loop pool and create new connection in new loop.
         auto newLoop = mEventLoopPool.acquireLoop();
         // Execute task asynchronously and wait for it to complete.

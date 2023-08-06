@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <string_view>
 
 extern "C" {
 #include <unistd.h>
@@ -92,22 +93,13 @@ void TcpBuffer::appendToBuffer(std::span<char> data) {
 }
 
 
-std::string TcpBuffer::read(SizeType size) noexcept {
-    std::string result;
+std::string_view TcpBuffer::read(SizeType size) noexcept {
+    std::string_view result;
     if (size < readablebytes()) {
-        result.resize(size);
-        std::copy(getReadPos(), getReadPos() + size, result.begin());
+        result = std::string_view { getReadPos(), size };
     } else {
-        result.resize(readablebytes());
-        std::copy(getReadPos(), getReadPos() + readablebytes(), result.begin());
+        result = std::string_view { getReadPos(), readablebytes() };
     }
-    return result;
-}
-
-std::string TcpBuffer::readAll() noexcept {
-    std::string result;
-    result.resize(readablebytes());
-    std::copy(getReadPos(), getReadPos() + readablebytes(), result.begin());
     return result;
 }
 

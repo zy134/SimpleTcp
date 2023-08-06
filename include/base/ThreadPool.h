@@ -10,7 +10,7 @@
 #include <future>
 #include <type_traits>
 
-namespace simpletcp {
+namespace simpletcp::utils {
 
 class ThreadPool {
     using ThreadTaskType = std::function<void ()>;
@@ -84,7 +84,7 @@ private:
     bool                        mExited;
     std::mutex                  mMutex;
     std::condition_variable     mCond;
-    std::vector<simpletcp::jthread>  mWorkers;
+    std::vector<Jthread>        mWorkers;
     std::list<ThreadTaskType>   mTasks;
 };
 

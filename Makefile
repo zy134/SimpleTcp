@@ -18,16 +18,18 @@ BUILD_LOG               := $(BUILD_PATH)/log.txt
 BASE_SOURCE_FILES       := $(wildcard $(SOURCE_PATH)/base/*.cpp)
 NET_SOURCE_FILES        := $(wildcard $(SOURCE_PATH)/net/*.cpp)
 TCP_SOURCE_FILES        := $(wildcard $(SOURCE_PATH)/tcp/*.cpp)
+HTTP_SOURCE_FILES       := $(wildcard $(SOURCE_PATH)/http/*.cpp)
 EXAMPLE_SOURCE_FILES    := $(wildcard $(SOURCE_PATH)/example/*.cpp)
-TEST_SOURCE_FILES       := $(wildcard $(SOURCE_PATH)/test/*.cpp)
+TEST_SOURCE_FILES       := $(wildcard $(ROOT_PATH)/test/*.cpp)
 
 ################################################################################################
 # Set target objects
 BASE_OBJS   := $(patsubst $(SOURCE_PATH)/base/%.cpp, $(BUILD_PATH)/base/%.o, $(BASE_SOURCE_FILES))
 NET_OBJS    := $(patsubst $(SOURCE_PATH)/net/%.cpp, $(BUILD_PATH)/net/%.o, $(NET_SOURCE_FILES))
 TCP_OBJS    := $(patsubst $(SOURCE_PATH)/tcp/%.cpp, $(BUILD_PATH)/tcp/%.o, $(TCP_SOURCE_FILES))
+HTTP_OBJS   := $(patsubst $(SOURCE_PATH)/http/%.cpp, $(BUILD_PATH)/http/%.o, $(HTTP_SOURCE_FILES))
 EXAMPLE_OBJS:= $(patsubst $(SOURCE_PATH)/example/%.cpp, $(BUILD_PATH)/example/%, $(EXAMPLE_SOURCE_FILES))
-TEST_OBJS   := $(patsubst $(SOURCE_PATH)/test/%.cpp, $(BUILD_PATH)/test/%, $(TEST_SOURCE_FILES))
+TEST_OBJS   := $(patsubst $(ROOT_PATH)/test/%.cpp, $(BUILD_PATH)/test/%, $(TEST_SOURCE_FILES))
 
 TCP_MODULE  := $(BUILD_PATH)/lib/libMyTcp.a
 
@@ -64,6 +66,7 @@ ifeq ($(CXX),clang++)
     $(shell export ASAN_OPTIONS=alloc_dealloc_mismatch=0)
 endif
 # address sanitizer flags
+ENABLE_ASAN := true
 ifeq ($(ENABLE_ASAN),true)
     ASAN_FLAGS := -fsanitize=address -fsanitize=leak -fsanitize=undefined
     DEBUG_FLAGS += $(ASAN_FLAGS)
@@ -91,7 +94,7 @@ LINKFLAGS += $(TCP_MODULE)
 # Set make targets.
 
 .PHONY: all
-all: $(BASE_OBJS) $(NET_OBJS) $(TCP_OBJS) $(EXAMPLE_OBJS)
+all: $(BASE_OBJS) $(NET_OBJS) $(TCP_OBJS) $(HTTP_OBJS) $(EXAMPLE_OBJS)
 
 START_TIME := $(shell cat /proc/uptime | awk -F "." '{print $$1}')
 
@@ -102,6 +105,7 @@ config: clean
 	mkdir $(BUILD_PATH)/base
 	mkdir $(BUILD_PATH)/net
 	mkdir $(BUILD_PATH)/tcp
+	mkdir $(BUILD_PATH)/http
 	mkdir $(BUILD_PATH)/example
 	mkdir $(BUILD_PATH)/test
 	mkdir $(BUILD_PATH)/lib
@@ -117,6 +121,7 @@ config: clean
 	@ echo "base objects: $(notdir $(BASE_OBJS))"
 	@ echo "network objects: $(notdir $(NET_OBJS))"
 	@ echo "TCP objects: $(notdir $(TCP_OBJS))"
+	@ echo "HTTP objects: $(notdir $(HTTP_OBJS))"
 	@ echo "example objects: $(notdir $(EXAMPLE_OBJS))"
 	@ echo "test objects: $(notdir $(TEST_OBJS))"
 	@ echo "build version: << $(BUILD_VER) >>"
@@ -147,11 +152,18 @@ $(TCP_OBJS): $(TCP_SOURCE_FILES)
 		$(CXX) $(CPPFLAGS) -c $^
 
 ################################################################################################
-$(TCP_MODULE): $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS)
+$(HTTP_OBJS): $(HTTP_SOURCE_FILES)
+	@ current_time=`date +"%x %X:%3N"`;\
+		echo "[$${current_time}][Compile] build target: $(notdir $@)";\
+		cd $(BUILD_PATH)/http;\
+		$(CXX) $(CPPFLAGS) -c $^
+
+################################################################################################
+$(TCP_MODULE): $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS) $(HTTP_OBJS)
 	@ current_time=`date +"%x %X:%3N"`;\
 		echo "[$${current_time}][Compile] build target: $(notdir $@)";\
 		cd $(BUILD_PATH);\
-		ar rcs libMyTcp.a $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS) && mv libMyTcp.a $(BUILD_PATH)/lib
+		ar rcs libMyTcp.a $(HTTP_OBJS) $(TCP_OBJS) $(NET_OBJS) $(BASE_OBJS) && mv libMyTcp.a $(BUILD_PATH)/lib
 	@ current_time=`date +"%x %X:%3N"`;\
 		END_TIME=`cat /proc/uptime | awk -F "." '{print $$1}'`; \
 		time_interval=`expr $${END_TIME} - $(START_TIME)`; \
@@ -170,7 +182,7 @@ $(TEST_OBJS): $(TEST_SOURCE_FILES) $(TCP_MODULE)
 	@ current_time=`date +"%x %X:%3N"`;\
 		echo "[$${current_time}][link   ] build test object: $(notdir $@)";\
 		cd $(BUILD_PATH)/test; \
-		$(CXX) $(CPPFLAGS) $(SOURCE_PATH)/test/$(notdir $@).cpp $(LINKFLAGS) -o $(BUILD_PATH)/test/$(notdir $@); \
+		$(CXX) $(CPPFLAGS) $(ROOT_PATH)/test/$(notdir $@).cpp $(LINKFLAGS) -o $(BUILD_PATH)/test/$(notdir $@); \
 		current_time=`date +"%x %X:%3N"`;\
 		END_TIME=`cat /proc/uptime | awk -F "." '{print $$1}'`; \
 		time_interval=`expr $${END_TIME} - $(START_TIME)`; \

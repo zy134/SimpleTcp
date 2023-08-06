@@ -1,22 +1,30 @@
 #pragma once
 #include <thread>
 
-namespace simpletcp {
+namespace simpletcp::utils {
 
-class jthread {
+class Jthread {
 public:
     template <typename FuncType, typename...Args>
-    jthread(FuncType&& func, Args&&...args)
+    Jthread(FuncType&& func, Args&&...args)
         :mThreadHadle(std::forward<FuncType>(func), std::forward<Args>(args)...) {}
 
-    ~jthread() noexcept {
+    ~Jthread() noexcept {
         if (mThreadHadle.joinable()) {
             mThreadHadle.join();
         }
     }
 
-    jthread(const jthread&) = delete;
-    jthread(jthread&& rhs) noexcept :mThreadHadle(std::move(rhs.mThreadHadle)) {}
+    // Disable copy
+    Jthread(const Jthread&) = delete;
+    Jthread& operator=(const Jthread&) = delete;
+
+    // Enable move
+    Jthread(Jthread&& rhs) noexcept :mThreadHadle(std::move(rhs.mThreadHadle)) {}
+    Jthread& operator=(Jthread&& rhs) noexcept {
+        mThreadHadle = std::move(rhs.mThreadHadle);
+        return *this;
+    }
 private:
     std::thread mThreadHadle;
 };

@@ -71,9 +71,13 @@ public:
      * @brief send : User interface. Send message to server.
      *               Thread-safety.
      *
-     * @param message:
+     * @param data:
      */
     void send(std::span<char> data);
+
+    void send(std::vector<char>&& data);
+
+    void send(std::string&& data);
 
     /**
      * @brief read : Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
@@ -83,7 +87,7 @@ public:
      *
      * @return result string.
      */
-    std::string read(size_t size) noexcept EXCLUDES(mRecvMutex);
+    std::string_view read(size_t size) noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief readAll : Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
@@ -91,7 +95,7 @@ public:
      *                  Thread-safety
      * @return result string.
      */
-    std::string readAll() noexcept EXCLUDES(mRecvMutex);
+    std::string_view readAll() noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief extract : Return a string which read from TcpBuffer, and extract data from TcpBuffer.
@@ -162,7 +166,7 @@ public:
     /**
      * @brief getLoop : Get owner loop for TcpConnection.
      *
-     * @return 
+     * @return
      */
     [[nodiscard]]
     net::EventLoop* getLoop() const noexcept { return mpEventLoop; }

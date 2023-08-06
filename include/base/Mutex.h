@@ -2,7 +2,7 @@
 
 // Set _LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS as true to enable thread safety annotation
 // for libc++.
-namespace Simple {
+namespace simpletcp {
 // Enable thread safety attributes only with clang.
 // The attributes can be safely erased when compiling with other compilers.
 #if defined(__clang__) && (!defined(SWIG))

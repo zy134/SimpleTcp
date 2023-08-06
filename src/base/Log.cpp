@@ -398,7 +398,6 @@ namespace simpletcp {
 void assertTrue(bool cond [[maybe_unused]], std::string_view msg [[maybe_unused]]) {
 #ifdef DEBUG_BUILD
 if (!cond) {
-    printBacktrace();
     LOG_FATAL("[ASSERT] assert error: {}\n", msg);
 }
 #endif

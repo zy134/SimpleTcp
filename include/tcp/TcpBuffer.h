@@ -42,13 +42,9 @@ public:
     // This operation is non-block.
     void appendToBuffer(std::span<char> data);
 
-    // Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
-    // The size of result string may less then input size, please check it!
-    std::string read(SizeType size) noexcept;
-
-    // Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
-    // The size of result string may less then input size, please check it!
-    std::string readAll() noexcept;
+    // Return a string_view which indicate the received data of TcpBuffer, but not extract any data from TcpBuffer.
+    // The size of result string_view may less then input size, please check it!
+    std::string_view read(SizeType size) noexcept;
 
     // Return a string which read from TcpBuffer, and extract data from TcpBuffer.
     // The size of result string may less then input size, please check it!

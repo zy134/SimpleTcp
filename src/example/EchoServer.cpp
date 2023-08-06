@@ -47,7 +47,13 @@ static void onMessage(const TcpConnectionPtr& conn) {
 }
 
 int main() try {
-    TcpServer server(&loop, serverAddr, MAX_LISTEN_QUEUE, 0);
+    TcpServerArgs initArgs {
+        .loop = &loop,
+        .serverAddr = serverAddr,
+        .maxListenQueue = MAX_LISTEN_QUEUE,
+        .maxThreadNum = 0
+    };
+    TcpServer server(initArgs);
     server.setConnectionCallback(onConnection);
     server.setMessageCallback(onMessage);
     server.start();
