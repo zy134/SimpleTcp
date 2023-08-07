@@ -4,9 +4,11 @@
 #include "base/Error.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <string_view>
+#include <vector>
 
 extern "C" {
 #include <unistd.h>
@@ -39,12 +41,12 @@ TcpBuffer::TcpBuffer() :mReadPos(0), mWritePos(0) {
  */
 void TcpBuffer::readFromSocket(const SocketPtr &socket) {
     auto res = ::read(socket->getFd(), getWritePos(), writablebytes());
-    if (res > 0 && (SizeType)res == writablebytes()) {
+    if (res > 0 && (size_type)res == writablebytes()) {
         // Don't write again. Make write availble in next loop.
-        mWritePos += static_cast<SizeType>(res);
+        mWritePos += static_cast<size_type>(res);
         mBuffer.resize(mBuffer.size() * 2);
     } else if (res > 0) {
-        mWritePos += static_cast<SizeType>(res);
+        mWritePos += static_cast<size_type>(res);
     } else {
         throw NetworkException("[TcpBuffer] write error.", errno);
     }
@@ -76,52 +78,93 @@ void TcpBuffer::writeToSocket(const SocketPtr &socket) {
     if (res > 0) {
         LOG_DEBUG("{}: write done, write bytes: {}", __FUNCTION__, res);
         // Don't write again. Make write availble in next loop.
-        updateReadPos(static_cast<SizeType>(res));
+        updateReadPos(static_cast<size_type>(res));
     } else {
         throw NetworkException("[TcpBuffer] write error.", errno);
     }
 }
 
-void TcpBuffer::appendToBuffer(std::span<char> data) {
+void TcpBuffer::appendToBuffer(span_type data) {
     LOG_DEBUG("{}: start, message size:{}, current buffer size:{}", __FUNCTION__, data.size(), mBuffer.size());
     while (writablebytes() < data.size()) {
         mBuffer.resize(data.size() * 2);
     }
-    std::copy(data.begin(), data.end(), getWritePos());
+    ::memcpy(getWritePos(), data.data(), data.size());
     mWritePos += data.size();
     LOG_DEBUG("{}: end, message size:{}, current buffer size:{}", __FUNCTION__, data.size(), mBuffer.size());
 }
 
 
-std::string_view TcpBuffer::read(SizeType size) noexcept {
-    std::string_view result;
+TcpBuffer::span_type TcpBuffer::read(size_type size) noexcept {
+    span_type result;
     if (size < readablebytes()) {
-        result = std::string_view { getReadPos(), size };
+        result = std::span { getReadPos(), size };
     } else {
-        result = std::string_view { getReadPos(), readablebytes() };
+        result = std::span { getReadPos(), readablebytes() };
     }
     return result;
 }
 
-std::string TcpBuffer::extract(SizeType size) noexcept {
-    std::string result;
+std::string_view TcpBuffer::readString(size_type size) noexcept {
+    if (size < readablebytes()) {
+        return std::string_view { reinterpret_cast<char *>(getReadPos()), size };
+    } else {
+        return std::string_view { reinterpret_cast<char *>(getReadPos()), readablebytes() };
+    }
+}
+
+std::u8string_view TcpBuffer::readU8String(size_type size) noexcept {
+    if (size < readablebytes()) {
+        return std::u8string_view { reinterpret_cast<char8_t *>(getReadPos()), size };
+    } else {
+        return std::u8string_view { reinterpret_cast<char8_t *>(getReadPos()), readablebytes() };
+    }
+}
+
+std::vector<TcpBuffer::char_type> TcpBuffer::extract(size_type size) noexcept {
+    buffer_type result;
     if (size < readablebytes()) {
         result.resize(size);
-        std::copy(getReadPos(), getReadPos() + size, result.begin());
+        ::memcpy(result.data(), getReadPos(), size);
     } else {
         result.resize(readablebytes());
-        std::copy(getReadPos(), getReadPos() + readablebytes(), result.begin());
+        ::memcpy(result.data(), getReadPos(), readablebytes());
     }
     updateReadPos(result.size());
     return result;
 }
 
+std::string TcpBuffer::extractString(size_type size) noexcept {
+    std::string result;
+    if (size < readablebytes()) {
+        result.resize(size);
+        ::memcpy(result.data(), getReadPos(), size);
+    } else {
+        result.resize(readablebytes());
+        ::memcpy(result.data(), getReadPos(), readablebytes());
+    }
+    updateReadPos(result.size());
+    return result;
+}
 
-void TcpBuffer::updateReadPos(SizeType len) noexcept {
+std::u8string TcpBuffer::extractU8String(size_type size) noexcept {
+    std::u8string result;
+    if (size < readablebytes()) {
+        result.resize(size);
+        ::memcpy(result.data(), getReadPos(), size);
+    } else {
+        result.resize(readablebytes());
+        ::memcpy(result.data(), getReadPos(), readablebytes());
+    }
+    updateReadPos(result.size());
+    return result;
+}
+
+void TcpBuffer::updateReadPos(size_type len) noexcept {
     assertTrue((mReadPos + len) <= mWritePos, "[TcpBuffer] the fomula (mReadPos + len <= mWritePos) dosn't hold!");
     mReadPos += len;
     if (mReadPos > readablebytes()) {
-        std::copy(getReadPos(), getWritePos(), mBuffer.data());
+        ::memcpy(mBuffer.data(), getReadPos(), readablebytes());
         mWritePos = readablebytes();
         mReadPos = 0;
     }

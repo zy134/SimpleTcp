@@ -4,9 +4,11 @@
 #include "net/Channel.h"
 #include "net/EventLoop.h"
 #include "net/Socket.h"
+#include "tcp/TcpBuffer.h"
 #include "tcp/TcpConnection.h"
 #include <bits/types/struct_tm.h>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -151,20 +153,20 @@ void TcpConnection::handleError() {
 
 // We use std::string but not const std::string& or string_view, because we should
 // hold the string in different thread. So make problem simpler, we need a copy.
-void TcpConnection::send(std::span<char> data) {
+void TcpConnection::send(span_type data) {
     // In loop thread, write to buffer directly.
     if (mpEventLoop->isInLoopThread()) {
         sendInLoop(data);
     } else {
     // Not in loop thread, copy the input buffer and send it to loop thread.
-        std::vector<char> tmp { data.begin(), data.end() };
+        std::vector<TcpBuffer::char_type> tmp { data.begin(), data.end() };
         mpEventLoop->queueInLoop([tmp = std::move(tmp), this] () mutable {
             sendInLoop({ tmp.data(), tmp.size() });
         });
     }
 }
 
-void TcpConnection::send(std::vector<char>&& data) {
+void TcpConnection::send(buffer_type&& data) {
     // In loop thread, write to buffer directly.
     if (mpEventLoop->isInLoopThread()) {
         sendInLoop(data);
@@ -176,19 +178,32 @@ void TcpConnection::send(std::vector<char>&& data) {
     }
 }
 
-void TcpConnection::send(std::string&& data) {
+void TcpConnection::sendString(std::string_view message) {
     // In loop thread, write to buffer directly.
     if (mpEventLoop->isInLoopThread()) {
-        sendInLoop(data);
+        sendInLoop({ reinterpret_cast<const TcpBuffer::char_type *>(message.data()), message.size() });
     } else {
-    // Not in loop thread, move the input buffer and send it to loop thread.
-        mpEventLoop->queueInLoop([data = std::move(data), this] () mutable {
-            sendInLoop(data);
+    // Not in loop thread, copy the input buffer and send it to loop thread.
+        std::string s { message.data(), message.size() };
+        mpEventLoop->queueInLoop([s = std::move(s), this] () mutable {
+            sendInLoop({ reinterpret_cast<const TcpBuffer::char_type *>(s.data()), s.size() });
         });
     }
 }
 
-void TcpConnection::sendInLoop(std::span<char> data) {
+void TcpConnection::sendString(std::string&& message) {
+    // In loop thread, write to buffer directly.
+    if (mpEventLoop->isInLoopThread()) {
+        sendInLoop({ reinterpret_cast<const TcpBuffer::char_type *>(message.data()), message.size() });
+    } else {
+    // Not in loop thread, move the input buffer and send it to loop thread.
+        mpEventLoop->queueInLoop([message = std::move(message), this] () mutable {
+            sendInLoop({ reinterpret_cast<const TcpBuffer::char_type *>(message.data()), message.size() });
+        });
+    }
+}
+
+void TcpConnection::sendInLoop(span_type data) {
     TRACE();
     mpEventLoop->assertInLoopThread();
     if (!isConnected()) {
@@ -212,30 +227,56 @@ void TcpConnection::sendInLoop(std::span<char> data) {
     }
 }
 
-std::string_view TcpConnection::read(size_t size) noexcept {
+TcpBuffer::span_type TcpConnection::read(size_t size) noexcept {
     TRACE();
     std::lock_guard lock { mRecvMutex };
     return mRecvBuffer.read(size);
 }
 
-std::string_view TcpConnection::readAll() noexcept {
+TcpBuffer::span_type TcpConnection::readAll() noexcept {
     TRACE();
     std::lock_guard lock { mRecvMutex };
     auto size = mRecvBuffer.size();
     return mRecvBuffer.read(size);
 }
 
-std::string TcpConnection::extract(size_t size) noexcept {
+std::vector<uint8_t> TcpConnection::extract(size_t size) noexcept {
     TRACE();
     std::lock_guard lock { mRecvMutex };
     return mRecvBuffer.extract(size);
 }
 
-std::string TcpConnection::extractAll() noexcept {
+std::vector<uint8_t> TcpConnection::extractAll() noexcept {
     TRACE();
     std::lock_guard lock { mRecvMutex };
     auto size = mRecvBuffer.size();
     return mRecvBuffer.extract(size);
+}
+
+std::string_view TcpConnection::readString(size_t size) noexcept {
+    TRACE();
+    std::lock_guard lock { mRecvMutex };
+    return mRecvBuffer.readString(size);
+}
+
+std::string_view TcpConnection::readStringAll() noexcept {
+    TRACE();
+    std::lock_guard lock { mRecvMutex };
+    auto size = mRecvBuffer.size();
+    return mRecvBuffer.readString(size);
+}
+
+std::string TcpConnection::extractString(size_t size) noexcept {
+    TRACE();
+    std::lock_guard lock { mRecvMutex };
+    return mRecvBuffer.extractString(size);
+}
+
+std::string TcpConnection::extractStringAll() noexcept {
+    TRACE();
+    std::lock_guard lock { mRecvMutex };
+    auto size = mRecvBuffer.size();
+    return mRecvBuffer.extractString(size);
 }
 
 // in loop thread.

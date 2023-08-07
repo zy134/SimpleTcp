@@ -40,9 +40,9 @@ static void onConnection(const TcpConnectionPtr& conn) {
 }
 
 static void onMessage(const TcpConnectionPtr& conn) {
-    auto message = conn->extractAll();
+    auto message = conn->extractStringAll();
     std::cerr << "read from client [" << message << "]" << std::endl;
-    conn->send(message);
+    conn->sendString(message);
     conn->dumpSocketInfo();
 }
 

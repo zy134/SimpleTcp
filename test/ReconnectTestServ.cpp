@@ -28,9 +28,9 @@ void onConnection(const TcpConnectionPtr& conn) {
 }
 
 void onMessage(const TcpConnectionPtr& conn) {
-    auto message = conn->extractAll();
+    auto message = conn->extractStringAll();
     LOG_INFO("{}: receive from client [{}]", __FUNCTION__, message);
-    conn->send(message);
+    conn->sendString(std::move(message));
 }
 
 

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -6,12 +7,16 @@
 
 namespace simpletcp::http {
 
-enum HttpStatusCode {
+enum class HttpStatusCode {
     OK = 200,
     MOVED_PERMANENTLY = 301,
     BAD_REQUEST = 400,
     NOT_FOUND = 404,
 };
+
+inline constexpr uint32_t to_unsigned(HttpStatusCode code) {
+    return static_cast<uint32_t>(code);
+}
 
 inline constexpr std::string_view to_string_view(HttpStatusCode code) {
     switch (code) {

@@ -19,7 +19,7 @@ TcpConnectionPtr clientConn;
 
 static void onMessage(const TcpConnectionPtr& conn) {
     TRACE();
-    auto message = conn->extractAll();
+    auto message = conn->extractStringAll();
     std::cout << message << std::endl;
 }
 
@@ -38,7 +38,7 @@ int main(int argc, char** argv) try {
             std::cout << "[EchoClient] Connection [" << client.getId() << "] is build!" << std::endl;
             clientConn = conn;
             auto msg = registerRequest(clientName);
-            conn->send(msg);
+            conn->sendString(msg);
         } else {
             clientConn = nullptr;
             std::cout << "[EchoClient] Connection [" << client.getId() << "] is destroy!" << std::endl;
@@ -56,7 +56,7 @@ int main(int argc, char** argv) try {
             if (guard != nullptr) {
                 LOG_INFO("{}: input: {}", __FUNCTION__, input);
                 auto msg = normalRequest(input);
-                guard->send(msg);
+                guard->sendString(msg);
             }
         }
     });

@@ -3,8 +3,9 @@
 #include "base/Utils.h"
 #include "net/Socket.h"
 #include <cstddef>
-#include <string_view>
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <span>
 
@@ -25,8 +26,12 @@ public:
     DISABLE_MOVE(TcpBuffer);
     TcpBuffer();
     ~TcpBuffer() = default;
-    using BufferType = std::vector<char>;
-    using SizeType = BufferType::size_type;
+
+    using char_type         = uint8_t;
+    using buffer_type       = std::vector<char_type>;
+    using size_type         = buffer_type::size_type;
+    using span_type         = std::span<const char_type>;
+    static_assert(std::is_same_v<span_type::size_type, buffer_type::size_type>, "[TcpBuffer] What happen?");
 
     // Read data from socket to TcpBuffer.
     // This operation may block.
@@ -40,19 +45,37 @@ public:
 
     // Append data to the end of TcpBuffer.
     // This operation is non-block.
-    void appendToBuffer(std::span<char> data);
+    void appendToBuffer(span_type data);
 
-    // Return a string_view which indicate the received data of TcpBuffer, but not extract any data from TcpBuffer.
-    // The size of result string_view may less then input size, please check it!
-    std::string_view read(SizeType size) noexcept;
+    /**
+     * @brief read : Read data from current buffer, not modified any data in buffer.
+     *
+     * @param size: The size would be read. The size of return data may smaller then input size!
+     *
+     * @return : return a view of data, not copy any data!
+     */
+    span_type read(size_type size) noexcept;
 
-    // Return a string which read from TcpBuffer, and extract data from TcpBuffer.
-    // The size of result string may less then input size, please check it!
-    std::string extract(SizeType size) noexcept;
+    std::string_view readString(size_type size) noexcept;
+
+    std::u8string_view readU8String(size_type size) noexcept;
+
+    /**
+     * @brief extract : Extract data from current buffer, any then may shrink buffer.
+     *
+     * @param size: The size would be extract.
+     *
+     * @return : return a container which is copy from current buffer.
+     */
+    buffer_type extract(size_type size) noexcept;
+
+    std::string extractString(size_type size) noexcept;
+
+    std::u8string extractU8String(size_type size) noexcept;
 
     // Return counts of bytes stored in buffer.
     [[nodiscard]]
-    SizeType size() const noexcept { return readablebytes(); }
+    size_type size() const noexcept { return readablebytes(); }
 
     [[nodiscard]]
     bool isReading() const noexcept;
@@ -61,21 +84,21 @@ public:
     bool isWriting() const noexcept;
 
 private:
-    BufferType mBuffer;
-    SizeType mReadPos;
-    SizeType mWritePos;
+    buffer_type mBuffer;
+    size_type mReadPos;
+    size_type mWritePos;
 
     [[nodiscard]]
-    char* getWritePos() noexcept { return mBuffer.data() + mWritePos; }
+    auto getWritePos() noexcept { return mBuffer.data() + mWritePos; }
 
     [[nodiscard]]
-    char* getReadPos() noexcept { return mBuffer.data() + mReadPos; }
+    auto getReadPos() noexcept { return mBuffer.data() + mReadPos; }
 
     [[nodiscard]]
-    SizeType writablebytes() const noexcept { return mBuffer.size() - mWritePos; }
+    size_type writablebytes() const noexcept { return mBuffer.size() - mWritePos; }
 
     [[nodiscard]]
-    SizeType readablebytes() const noexcept { return mWritePos - mReadPos; }
+    size_type readablebytes() const noexcept { return mWritePos - mReadPos; }
 
     /*
      * Before shrink:
@@ -100,7 +123,7 @@ private:
      *  |                  |                                          |
      * mReadPos          mWritePos                                  last
      */
-    void updateReadPos(SizeType len) noexcept;
+    void updateReadPos(size_type len) noexcept;
 
 };
 

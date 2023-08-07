@@ -24,7 +24,7 @@ const SocketAddr serverAddr {
 };
 
 static void onMessage(const TcpConnectionPtr& conn) {
-    auto message = conn->extractAll();
+    auto message = conn->extractStringAll();
     std::cout << "From server:[" << message << "]" << std::endl;
 }
 
@@ -61,7 +61,7 @@ int main() try {
         std::this_thread::sleep_for(3s);
         std::lock_guard lock { mu };
         for (auto&& conn : connections) {
-            conn.first->send(conn.second);
+            conn.first->sendString(conn.second);
         }
     }
 

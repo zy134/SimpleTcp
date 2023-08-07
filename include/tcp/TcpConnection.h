@@ -7,11 +7,14 @@
 #include "net/Socket.h"
 #include "tcp/TcpBuffer.h"
 #include <cstddef>
+#include <cstdint>
+#include <fmt/core.h>
 #include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <span>
+#include <vector>
 
 namespace simpletcp::tcp {
 
@@ -49,6 +52,10 @@ class TcpConnection final : public std::enable_shared_from_this<TcpConnection> {
     //      DisConnected -> Connected -> DisConnected
 
 public:
+
+    using span_type = TcpBuffer::span_type;         // equals to std::span<const uint8_t>
+    using buffer_type = TcpBuffer::buffer_type;     // equals to std::vector<uint8_t>
+
     static TcpConnectionPtr createTcpConnection(net::SocketPtr&& socket, net::EventLoop* loop);
 
     // User interface.
@@ -73,11 +80,13 @@ public:
      *
      * @param data:
      */
-    void send(std::span<char> data);
+    void send(span_type data);
 
-    void send(std::vector<char>&& data);
+    void send(buffer_type&& data);
 
-    void send(std::string&& data);
+    void sendString(std::string_view message);
+
+    void sendString(std::string&& message);
 
     /**
      * @brief read : Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
@@ -87,7 +96,7 @@ public:
      *
      * @return result string.
      */
-    std::string_view read(size_t size) noexcept EXCLUDES(mRecvMutex);
+    span_type read(size_t size) noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief readAll : Return a string which read from TcpBuffer, but not extract data from TcpBuffer.
@@ -95,7 +104,7 @@ public:
      *                  Thread-safety
      * @return result string.
      */
-    std::string_view readAll() noexcept EXCLUDES(mRecvMutex);
+    span_type readAll() noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief extract : Return a string which read from TcpBuffer, and extract data from TcpBuffer.
@@ -105,7 +114,7 @@ public:
      *
      * @return result string.
      */
-    std::string extract(size_t size) noexcept EXCLUDES(mRecvMutex);
+    buffer_type extract(size_t size) noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief extract : Return a string which read from TcpBuffer, and extract data from TcpBuffer.
@@ -115,7 +124,16 @@ public:
      *
      * @return result string.
      */
-    std::string extractAll() noexcept EXCLUDES(mRecvMutex);
+    buffer_type extractAll() noexcept EXCLUDES(mRecvMutex);
+
+    // Read function return string.
+    std::string_view    readString(size_t size) noexcept EXCLUDES(mRecvMutex);
+
+    std::string_view    readStringAll() noexcept EXCLUDES(mRecvMutex);
+
+    std::string         extractString(size_t size) noexcept EXCLUDES(mRecvMutex);
+
+    std::string         extractStringAll() noexcept EXCLUDES(mRecvMutex);
 
     /**
      * @brief getBufferSize : Get the size of bytes store in mRecvBuffer.
@@ -200,11 +218,7 @@ private:
 
     void handleClose() EXCLUDES(mRecvMutex);
 
-    void sendInLoop(std::span<char> data);
-
-    std::string readInLoop(size_t size) noexcept;
-
-    std::string extractInLoop(size_t size) noexcept;
+    void sendInLoop(span_type data);
 };
 
 

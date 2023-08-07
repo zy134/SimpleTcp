@@ -60,7 +60,7 @@ private:
             LOG_DEBUG("{}: request length {}, type {}", __FUNCTION__
                     , (uint64_t)requestHdr.mReqLength, (uint64_t)requestHdr.mReqType);
             if (conn->getBufferSize() >= requestHdr.mReqLength) {
-                auto request = conn->extract(requestHdr.mReqLength);
+                auto request = conn->extractString(requestHdr.mReqLength);
                 assertTrue(requestHdr.mReqLength == request.size(), "[ChatServer] Bad request!");
                 std::string_view requestData { request.data() + sizeof(requestHdr), request.size() - sizeof(requestHdr) };
                 switch (requestHdr.mReqType) {
@@ -69,7 +69,7 @@ private:
                         for (const auto& client : mClients) {
                             const auto& clientName = mClients.at(conn);
                             auto message = simpletcp::format("[{}] {}", clientName, requestData);
-                            client.first->send(message);
+                            client.first->sendString(message);
                         }
                         return;
                     case RequestType::Register:

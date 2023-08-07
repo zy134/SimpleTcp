@@ -23,7 +23,7 @@ const SocketAddr serverAddr {
 TcpConnectionPtr clientConn;
 
 static void onMessage(const TcpConnectionPtr& conn) {
-    auto message = conn->extractAll();
+    auto message = conn->extractStringAll();
     std::cout << "From server:[" << message << "]" << std::endl;
 }
 
@@ -51,7 +51,7 @@ int main() try {
             if (guard != nullptr) {
                 LOG_INFO("{}: input: {}", __FUNCTION__, input);
                 std::cout << "To server:[" << input << "]" << std::endl;
-                guard->send(input);
+                guard->sendString(input);
             }
         }
     });

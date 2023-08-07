@@ -33,7 +33,7 @@ void appendResponseToConnection(const HttpResponse& response, const tcp::TcpConn
     buffer.append(response.mStatusLine);
     buffer.append(CRLF);
     if (response.mHeaders.empty()) {
-        conn->send(std::move(buffer));
+        conn->sendString(std::move(buffer));
         LOG_DEBUG("{}: response", __FUNCTION__);
         return ;
     }
@@ -42,17 +42,17 @@ void appendResponseToConnection(const HttpResponse& response, const tcp::TcpConn
         buffer.append(header.first).append(": ").append(header.second).append(CRLF);
     }
     if (response.mBody.empty()) {
-        conn->send(std::move(buffer));
+        conn->sendString(std::move(buffer));
         LOG_DEBUG("{}: response", __FUNCTION__);
         return ;
     }
 
     buffer.append(response.mBody);
     buffer.append(CRLF);
-    conn->send(std::move(buffer));
+    conn->sendString(std::move(buffer));
     LOG_DEBUG("{}: response", __FUNCTION__);
     return ;
-} 
+}
 
 HttpServer::HttpServer(HttpServerArgs args): mLoop(), mTcpServer({
         .loop = &mLoop,
@@ -75,10 +75,10 @@ void HttpServer::start() {
 
 void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
     TRACE();
-    auto rawHttpPacket = conn->readAll();
+    auto rawHttpPacket = conn->readStringAll();
     try {
         auto request = parseHttpRequest(rawHttpPacket);
-        request.mRawRequest = conn->extract(request.mRequestSize);
+        request.mRawRequest = conn->extractString(request.mRequestSize);
         dumpHttpRequest(request);
         appendResponseToConnection(HTTP_DEFAULT_RESPONSE, conn);
         conn->shutdownConnection();

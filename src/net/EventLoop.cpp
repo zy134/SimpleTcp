@@ -96,6 +96,8 @@ void EventLoop::removeChannel(Channel *channel) {
     LOG_INFO("{}: channel {}, fd {}"
             , __FUNCTION__, static_cast<void *>(channel), channel->getFd());
     assertInLoopThread();
+    // FIXME:
+    // In the procedure of stack unwind, Channel may destroied when mIsLoopingNow is true.
     assertTrue(mIsLoopingNow == false || std::uncaught_exceptions() > 0
             , "Don't remove channel in loop! Should queueInLoop...");
     mpPoller->removeChannel(channel);
