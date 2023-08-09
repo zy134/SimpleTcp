@@ -16,13 +16,8 @@ namespace simpletcp::http {
 
 static constexpr std::string_view CRLF = "\r\n";
 
-const static HttpResponse HTTP_DEFAULT_RESPONSE {
-    .mStatus = HttpStatusCode::NOT_FOUND,
-    .mStatusLine = "HTTP/1.1 400 Bad Request",
-    .mHeaders {},
-    .mBody {},
-};
-
+// We declare appendResponseToConnection here because we don't allow users to send HttpResponse directly. HttpResponse
+// must send by HttpServer, users can customize parameters of HttpResponse package.
 void appendResponseToConnection(const HttpResponse& response, const tcp::TcpConnectionPtr& conn) {
     TRACE();
     if (response.mStatusLine.empty()) {
@@ -41,6 +36,7 @@ void appendResponseToConnection(const HttpResponse& response, const tcp::TcpConn
     for (auto&& header : response.mHeaders) {
         buffer.append(header.first).append(": ").append(header.second).append(CRLF);
     }
+    buffer.append(CRLF);
     if (response.mBody.empty()) {
         conn->sendString(std::move(buffer));
         LOG_DEBUG("{}: response", __FUNCTION__);
@@ -80,12 +76,15 @@ void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
         auto request = parseHttpRequest(rawHttpPacket);
         request.mRawRequest = conn->extractString(request.mRequestSize);
         dumpHttpRequest(request);
-        appendResponseToConnection(HTTP_DEFAULT_RESPONSE, conn);
+        if (mRequestCb) {
+            LOG_INFO("{}: send response.", __FUNCTION__);
+            HttpResponse response;
+            mRequestCb(request, response);
+        } else {
+            LOG_INFO("{}: response not found", __FUNCTION__);
+            appendResponseToConnection(HTTP_NOT_FOUND_RESPONSE, conn);
+        }
         conn->shutdownConnection();
-        // HttpResponse response;
-        // if (mRequestCb) {
-        //     mRequestCb(request, response);
-        // } else {}
     } catch (const std::exception& e) {
         LOG_FATAL("{}: Http error happen. {}", __FUNCTION__, e.what());
     }

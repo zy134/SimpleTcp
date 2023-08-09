@@ -22,9 +22,9 @@ static bool parseHttpRequestLine(std::string_view requestLine, HttpRequest& requ
     }
     const auto parser = [&] {
         if (requestLine.find("HTTP/1.1") != std::string_view::npos) {
-            request.mVersion = HttpRequestVersion::HTTP1_1;
+            request.mVersion = HttpVersion::HTTP1_1;
         } else if (requestLine.find("HTTP/1.0") != std::string_view::npos) {
-            request.mVersion = HttpRequestVersion::HTTP1_0;
+            request.mVersion = HttpVersion::HTTP1_0;
         } else {
             LOG_ERR("parseHttpRequestLine: parse error, unknown http version!");
             return false;

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <type_traits>
-#include <ios>
-#include <utility>
 #if defined (__clang__)
 #pragma clang diagnostic ignored "-Wformat-security"
 #endif
@@ -139,10 +136,20 @@ private:
         } while(0);                                                             \
     }
 
-#define TRACE()                                                 \
-    detail::ScopeTracer __scoper_tracer__{ TAG, __FUNCTION__ }; \
+#define TRACE() detail::ScopeTracer __scoper_tracer__{ TAG, __FUNCTION__ };
 
-void assertTrue(bool cond, std::string_view msg);
+
+#ifdef DEBUG_BUILD
+#define assertTrue(cond, msg)                       \
+if (!(cond)) {                                      \
+    simpletcp::detail::log(simpletcp::LogLevel::Fatal, TAG, "[ASSERT] assert error: {}", msg); \
+}
+#else
+#define assertTrue(cond, msg)                       \
+if (!(cond)) {                                      \
+    simpletcp::detail::log(simpletcp::LogLevel::Error, TAG, "[ASSERT] assert error: {}", msg); \
+}
+#endif
 
 void printBacktrace();
 

@@ -34,7 +34,7 @@ inline std::string normalRequest(std::string_view sv) {
     result.resize(sv.size() + sizeof(RequestHdr));
     std::memcpy(result.data(), reinterpret_cast<char *>(&hdr), sizeof(RequestHdr));
     std::memcpy(result.data() + sizeof(RequestHdr), sv.data(), sv.size());
-    simpletcp::assertTrue(result.size() >= sizeof(RequestHdr), "[ChatCommon] Bad request!");
+    assert(result.size() >= sizeof(RequestHdr));
     return result;
 }
 
@@ -47,7 +47,7 @@ inline std::string registerRequest(std::string_view sv) {
     result.resize(sv.size() + sizeof(RequestHdr));
     std::memcpy(result.data(), reinterpret_cast<char *>(&hdr), sizeof(hdr));
     std::memcpy(result.data() + sizeof(RequestHdr), sv.data(), sv.size());
-    simpletcp::assertTrue(result.size() >= sizeof(RequestHdr), "[ChatCommon] Bad request!");
+    assert(result.size() >= sizeof(RequestHdr));
     return result;
 }
 
@@ -60,7 +60,7 @@ inline std::string unregisterRequest(std::string_view sv) {
     result.resize(hdr.mReqLength);
     std::memcpy(result.data(), reinterpret_cast<unsigned char *>(&hdr), sizeof(RequestHdr));
     std::memcpy(result.data(), sv.data(), sv.size());
-    simpletcp::assertTrue(result.size() >= sizeof(RequestHdr), "[ChatCommon] Bad request!");
+    assert(result.size() >= sizeof(RequestHdr));
     return result;
 }
 
