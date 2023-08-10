@@ -58,7 +58,7 @@ private:
             assertTrue(sizeof(requestHdr) == hdrBuf.size(), "[ChatServer] Bad request header!");
             std::memcpy(reinterpret_cast<char *>(&requestHdr), hdrBuf.data(), sizeof(RequestHdr));
             LOG_DEBUG("{}: request length {}, type {}", __FUNCTION__
-                    , (uint64_t)requestHdr.mReqLength, (uint64_t)requestHdr.mReqType);
+                    , static_cast<uint64_t>(requestHdr.mReqLength), static_cast<uint64_t>(requestHdr.mReqType));
             if (conn->getBufferSize() >= requestHdr.mReqLength) {
                 auto request = conn->extractString(requestHdr.mReqLength);
                 assertTrue(requestHdr.mReqLength == request.size(), "[ChatServer] Bad request!");

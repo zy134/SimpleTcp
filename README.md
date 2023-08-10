@@ -3,6 +3,8 @@
 <br>&emsp;&emsp;It compiles successfully on clang++13 and gcc-10
 
 ```cpp
-make config
-make -j4
+mkdir build
+cd build
+cmake  .. -DCMAKE_BUILD_TYPE=Debug
+make -j8
 ```

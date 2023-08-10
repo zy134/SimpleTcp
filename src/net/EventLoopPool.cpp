@@ -21,10 +21,10 @@ EventLoopPool::EventLoopPool(EventLoop* mainLoop, int maxThreadNum): mpMainLoop(
     assertTrue(mMaxThreadNum >= 0, "[EventLoopPool] bad maxThreadNum");
     assertTrue(mpMainLoop != nullptr, "[EventLoopPool] loop must not be none!");
 
-    if (mMaxThreadNum > (int)std::thread::hardware_concurrency()) {
+    if (mMaxThreadNum > static_cast<int>(std::thread::hardware_concurrency())) {
         LOG_WARN("{}: maxThreadNum {} is bigger than hardware_concurrency num {}!"
                 , __FUNCTION__, mMaxThreadNum, std::thread::hardware_concurrency());
-        mMaxThreadNum = (int)std::thread::hardware_concurrency();
+        mMaxThreadNum = static_cast<int>(std::thread::hardware_concurrency());
     }
 
     for (int i = 0; i < mMaxThreadNum; ++i) {

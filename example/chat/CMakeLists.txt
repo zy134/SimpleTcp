@@ -1,0 +1,6 @@
+add_executable(ChatServer ChatServer.cpp)
+add_executable(ChatClient ChatClient.cpp)
+target_include_directories(ChatClient PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(ChatServer PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(ChatServer SimpleTcp_tcp)
+target_link_libraries(ChatClient SimpleTcp_tcp)

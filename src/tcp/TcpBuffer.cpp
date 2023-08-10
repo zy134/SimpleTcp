@@ -41,7 +41,7 @@ TcpBuffer::TcpBuffer() :mReadPos(0), mWritePos(0) {
  */
 void TcpBuffer::readFromSocket(const SocketPtr &socket) {
     auto res = ::read(socket->getFd(), getWritePos(), writablebytes());
-    if (res > 0 && (size_type)res == writablebytes()) {
+    if (res > 0 && static_cast<size_type>(res) == writablebytes()) {
         // Don't write again. Make write availble in next loop.
         mWritePos += static_cast<size_type>(res);
         mBuffer.resize(mBuffer.size() * 2);

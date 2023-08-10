@@ -1,0 +1,6 @@
+add_executable(EchoServer EchoServer.cpp)
+add_executable(EchoClient EchoClient.cpp)
+target_include_directories(EchoClient PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(EchoServer PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(EchoServer SimpleTcp_tcp)
+target_link_libraries(EchoClient SimpleTcp_tcp)

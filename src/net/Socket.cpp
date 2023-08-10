@@ -4,6 +4,7 @@
 #include "net/Socket.h"
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -46,7 +47,7 @@ inline static int createTcpNonblockingSocket(IP_PROTOCOL protocol) {
 inline static std::string transAddrToString(const sockaddr_in& addr) {
     std::string result;
     // addr.sin_addr is a 32 bytes struct.
-    auto start = (uint8_t *)(&addr.sin_addr.s_addr);
+    auto start = reinterpret_cast<const uint8_t *>(&addr.sin_addr.s_addr);
     constexpr auto maxLen = sizeof(addr.sin_addr);
     for (int i = 0; i != maxLen; ++i) {
         result.append(std::to_string(start[i]));
@@ -315,9 +316,11 @@ void Socket::dumpSocketInfo() const noexcept {
         LOG_DEBUG("{}: rtt={}, trrval={}, rto={}", __FUNCTION__
                 , tcpInfo.tcpi_rtt, tcpInfo.tcpi_rttvar, tcpInfo.tcpi_rto);
         LOG_DEBUG("{}: send cwnd={}, mss={}, ssthresh={}, wscale={}", __FUNCTION__
-                , tcpInfo.tcpi_snd_cwnd, tcpInfo.tcpi_snd_mss, tcpInfo.tcpi_snd_ssthresh, (int)tcpInfo.tcpi_snd_wscale);
+                , tcpInfo.tcpi_snd_cwnd, tcpInfo.tcpi_snd_mss, tcpInfo.tcpi_snd_ssthresh
+                , static_cast<int>(tcpInfo.tcpi_snd_wscale));
         LOG_DEBUG("{}: recv space={}, mss={}, ssthresh={}, wscale={}", __FUNCTION__
-                , tcpInfo.tcpi_rcv_space, tcpInfo.tcpi_rcv_mss, tcpInfo.tcpi_rcv_ssthresh, (int)tcpInfo.tcpi_rcv_wscale);
+                , tcpInfo.tcpi_rcv_space, tcpInfo.tcpi_rcv_mss, tcpInfo.tcpi_rcv_ssthresh
+                , static_cast<int>(tcpInfo.tcpi_rcv_wscale));
     } else {
         LOG_WARN("{}: failed to get tcp info!");
     }
