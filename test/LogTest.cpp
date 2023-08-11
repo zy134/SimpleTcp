@@ -13,20 +13,11 @@ inline static constexpr std::string_view TAG = "LogTest";
 using namespace std;
 using namespace simpletcp;
 
-void bench() {
-    std::vector<utils::Jthread> vec;
-    for (auto i = 0; i != 4; ++i) {
-        vec.emplace_back([&] {
-            for (int j = 0; j != 1'000'000; ++j) {
-                LOG_INFO("test log Info, index {}", j);
-            }
-        });
-    }
-    vec.clear();
-}
-
 int main() {
-    LOG_INFO("test log start");
-    bench();
-    LOG_ERR("test log end");
+    LOG_VER("ver");
+    LOG_DEBUG("debug");
+    LOG_INFO("info");
+    LOG_WARN("warn");
+    LOG_ERR("error");
+    LOG_FATAL("fatal");
 }

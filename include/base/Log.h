@@ -1,60 +1,27 @@
 #pragma once
+#include "base/LogConfig.h"
+#include "base/LogServer.h"
+#include "base/Backtrace.h"
+#include <utility>
 
-#if defined (__clang__)
-#pragma clang diagnostic ignored "-Wformat-security"
-#endif
+namespace simpletcp::detail {
 
-#if defined (__GNUC__)
-#pragma GCC diagnostic ignored "-Wformat-security"
-#endif
-
-#include <array>
-#include <string_view>
-#include <type_traits>
-#include <concepts>
-#include "base/Format.h"
-
-namespace simpletcp {
-
-enum class LogLevel {
-    Version = 0,
-    Debug,
-    Info,
-    Warning,
-    Error,
-    Fatal,
-};
-
-namespace detail {
-
-class LogBuffer;
-class LogServer;
-
-// Exception should be deal with in internal module of Log.
-void format_log_line(LogLevel level, std::string_view fmt, std::string_view tag) noexcept;
-
-constexpr int TransLogLevelToInt(LogLevel level) {
-    return static_cast<int>(level);
-}
-
-template <typename T>
-concept StringType =
-    std::same_as<std::string_view, std::decay_t<T>> ||
-    std::same_as<std::string, std::decay_t<T>> ||
-    std::same_as<const char *, std::decay_t<T>>
-;
-
-template <typename T>
-concept Formatable =
-    StringType<T> ||
-    std::integral<std::decay_t<T>> ||
-    std::floating_point<std::decay_t<T>> ||
-    std::convertible_to<std::decay_t<T>, void *>;
+void printBacktrace();
 
 template <StringType T, Formatable ...Args>
-constexpr void log(LogLevel level, std::string_view tag, T&& str, Args&& ...args) {
-    auto fmtStr = simpletcp::format(std::forward<T>(str), std::forward<Args>(args)...);
-    detail::format_log_line(level, fmtStr, tag);
+constexpr void log(LogLevel level, std::string_view tag, T&& fmt, Args&& ...args) {
+    LogServer::getInstance().format(level, tag, std::forward<T>(fmt), std::forward<Args>(args)...);
+    [[unlikely]]
+    if (level == LogLevel::Fatal) {
+        printBacktrace();
+        LogServer::getInstance().forceDestroy();
+        std::terminate();
+    }
+    // For error case, need to flush buffer to log file immediately.
+    [[unlikely]]
+    if (level == LogLevel::Error) {
+        LogServer::getInstance().forceFlush();
+    }
 }
 
 class ScopeTracer {
@@ -75,24 +42,7 @@ private:
 } // namespace detail
 
 
-// Default log file path.
-#ifndef DEFAULT_LOG_PATH
-//#define DEFAULT_LOG_PATH "/home/zy134/test/ChatServer/logs"
-#error Undefined DEFAULT_LOG_PATH!
-#endif
-// Default log line length.
-#ifndef LOG_MAX_LINE_SIZE
-#define LOG_MAX_LINE_SIZE 512
-#endif
-// Default log file size.
-#ifndef LOG_MAX_FILE_SIZE
-#define LOG_MAX_FILE_SIZE (1 << 20)
-#endif
-
-#ifndef DEFAULT_LOG_LEVEL
-#define DEFAULT_LOG_LEVEL 1
-#endif
-
+namespace simpletcp {
 #define LOG_VER(fmt, ...)                                                       \
     if constexpr (static_cast<int>(LogLevel::Version) >= DEFAULT_LOG_LEVEL) {   \
         do {                                                                    \
@@ -138,6 +88,7 @@ private:
 
 #define TRACE() detail::ScopeTracer __scoper_tracer__{ TAG, __FUNCTION__ };
 
+using detail::printBacktrace;
 
 #ifdef DEBUG_BUILD
 #define assertTrue(cond, msg)                       \
@@ -150,7 +101,5 @@ if (!(cond)) {                                      \
     simpletcp::detail::log(simpletcp::LogLevel::Error, TAG, "[ASSERT] assert error: {}", msg); \
 }
 #endif
-
-void printBacktrace();
 
 }// namespace utils

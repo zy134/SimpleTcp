@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# generate compile_commands.json
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
 find_package(fmt REQUIRED)
 
 if("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
@@ -35,7 +38,7 @@ if("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
 
     # Set definition.
     add_compile_definitions(
-        DEFAULT_LOG_PATH="${PROJECT_SOURCE_DIR}/logs"
+        DEFAULT_LOG_PATH="${PROJECT_SOURCE_DIR}/build/logs"
         DEBUG_BUILD=1
         DEFAULT_LOG_LEVEL=1
     )
@@ -47,7 +50,7 @@ else()
         -Wwrite-strings -Wpointer-arith -Werror")
 
     add_compile_definitions(
-        DEFAULT_LOG_PATH="${PROJECT_SOURCE_DIR}/logs"
+        DEFAULT_LOG_PATH="${PROJECT_SOURCE_DIR}/build/logs"
         DEBUG_BUILD=0
         DEFAULT_LOG_LEVEL=2
     )

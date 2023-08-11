@@ -110,7 +110,7 @@ void Epoller::removeChannel(Channel *channel) {
 }
 
 auto Epoller::poll() -> std::vector<Channel *> {
-    LOG_INFO("{}: +", __FUNCTION__);
+    TRACE();
     std::vector<Channel *> result;
 
     std::array<epoll_event, EPOLL_MAX_WAIT_NUM> rEventArray;
@@ -133,7 +133,6 @@ auto Epoller::poll() -> std::vector<Channel *> {
             return (left->getPriority() > right->getPriority());
         });
     }
-    LOG_INFO("{}: -", __FUNCTION__);
     return result;
 }
 
