@@ -19,6 +19,8 @@ if("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
         -Wwrite-strings -Wpointer-arith -Werror")
     # Add address-santizer for debug-build.
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=leak -fsanitize=undefined")
+    # Add stack protector for debug-build
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector")
     # For g++, add rdynamic to enable stack trace.
     if (CMAKE_COMPILER_IS_GNUCXX)
         message(STATUS "Current compiler is g++")

@@ -11,6 +11,7 @@
 #include <array>
 #include <chrono>
 #include <ctime>
+#include <exception>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -126,10 +127,16 @@ void EventLoop::startLoop() {
         }
         for (auto* channel : activeChannels) {
             mpCurrentChannel = channel;
-            LOG_DEBUG("{}: current channel({}), fd({}), info({})"
-                    , __FUNCTION__, static_cast<void *>(mpCurrentChannel)
-                    , mpCurrentChannel->getFd(), mpCurrentChannel->getInfo());
-            channel->handleEvent();
+            [[likely]]
+            if (mpPoller->hasChannel(channel)) {
+                LOG_DEBUG("{}: current channel({}), fd({}), info({})"
+                        , __FUNCTION__, static_cast<void *>(mpCurrentChannel)
+                        , mpCurrentChannel->getFd(), mpCurrentChannel->getInfo());
+                channel->handleEvent();
+            } else {
+                LOG_ERR("{}: this channel {} has removed by other channel, exception count {}"
+                        , __FUNCTION__, static_cast<void *>(channel), std::uncaught_exceptions());
+            }
             mpCurrentChannel = nullptr;
         }
         mIsLoopingNow = false;
