@@ -25,7 +25,7 @@ enum class LogLevel {
 // Using style of libfmt(C++ std::format) or c-style snprintf.
 #define LOG_STYLE_FMT true
 
-// Default log file size. default 256Mb
+// Default log file size 256Mb
 #ifndef LOG_MAX_FILE_SIZE
 #define LOG_MAX_FILE_SIZE (1 << 28)
 #endif
@@ -34,7 +34,8 @@ enum class LogLevel {
 #define DEFAULT_LOG_LEVEL 1
 #endif
 
-// TODO: equals to page size
-constexpr unsigned long LOG_BUFFER_SIZE = 4096ul * 4;
+// TODO: equals to multiple of page size
+// constexpr unsigned long LOG_BUFFER_SIZE = 1ul << 22; // 4Mb
+constexpr unsigned long LOG_BUFFER_SIZE = 1ul << 18; // 256Kb
 
 } // namespace simpletcp

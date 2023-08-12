@@ -16,12 +16,22 @@ if("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
     # Set c++ version.
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -pthread -fno-rtti")
     # Enable stack trace and not strip simbols.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -fno-omit-frame-pointer")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -ggdb3 -fno-omit-frame-pointer")
     # Add conversion check.
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wconversion -Wshadow -Wold-style-cast \
         -Wwrite-strings -Wpointer-arith -Werror")
     # Add address-santizer for debug-build.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=leak -fsanitize=undefined")
+    if(${ENABLE_ASAN})
+        message(STATUS "Enable address santizer")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=leak -fsanitize=undefined")
+    else()
+        message(STATUS "Disable address santizer")
+    endif()
+    # Add gprof for debug-build.
+    if(${ENABLE_GNU_PROFILE})
+        message(STATUS "Enable gnu profile")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+    endif()
     # Add stack protector for debug-build
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector")
     # For g++, add rdynamic to enable stack trace.

@@ -14,8 +14,8 @@ class LogBuffer final {
     DISABLE_MOVE(LogBuffer);
 
 public:
-    using BufferType = std::array<char, LOG_BUFFER_SIZE>;
-    using SizeType = BufferType::size_type;
+    using buffer_type = std::array<char, LOG_BUFFER_SIZE>;
+    using size_type = buffer_type::size_type;
 
     LogBuffer() {
         mUsedSize = 0;
@@ -43,8 +43,8 @@ public:
     }
 
 private:
-    std::array<char, LOG_BUFFER_SIZE>   mRawBuffer;
-    size_t                              mUsedSize;
+    buffer_type     mRawBuffer;
+    size_type       mUsedSize;
 };
 
 }// namespace utils

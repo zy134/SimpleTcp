@@ -2,21 +2,21 @@
 #include "base/Format.h"
 #include "base/Error.h"
 #include "base/LogConfig.h"
-#include <bits/types/time_t.h>
-#include <cstddef>
+#include "base/StringHelper.h"
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <chrono>
 #include <filesystem>
 #include <ctime>
-#include <iterator>
-#include <math.h>
+#include <string>
 #include <string_view>
 
 extern "C" {
 #if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
     #include <unistd.h>
+    #include <fcntl.h>
 #elif defined (__WIN32) || defined(__WIN64) || defined(WIN32)
     #include <windows.h>
 #else
@@ -28,9 +28,51 @@ using namespace std;
 using namespace std::chrono;
 using namespace std::chrono_literals;
 
+#if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
+static std::string getLinuxProcessName() {
+    // Get process name.
+    std::string procPath = "/proc/";
+    std::string procCmdline;
+    procCmdline.resize(256);
+    procPath.append(std::to_string(::getpid())).append("/cmdline");
+    auto procFd = ::open(procPath.c_str(), O_RDONLY);
+    if (procFd > 0) {
+        auto len = ::read(procFd, procCmdline.data(), procCmdline.size());
+        if (len > 0) {
+            procCmdline.resize(len);
+            auto pos = procCmdline.find_last_of('/');
+            if (pos != std::string_view::npos) {
+                pos += 1;
+                procCmdline = procCmdline.substr(pos);
+            }
+        }
+    }
+    if (procCmdline.empty()) {
+        procCmdline = "Unknown";
+    } else {
+        procCmdline = simpletcp::utils::strip(procCmdline);
+    }
+    return procCmdline;
+}
+#endif
+
 namespace simpletcp::detail {
 
 LogServer::LogServer() {
+    // Initialize static variables
+#if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
+    mProcessId = ::getpid();
+    mProcessName = getLinuxProcessName();
+#elif defined (__WIN32) || defined(__WIN64) || defined(WIN32)
+    mProcessId = GetCurrentProcessId();
+    // FIXME:
+    // Add support for windows.
+    mProcessName = "Unknown";
+#else
+    #error "Not support platform!"
+#endif
+    mProcessIdStr = simpletcp::format("{:5d}", mProcessId);
+
     // Create log file.
     mLogFileStream = createLogFileStream();
     mLogAlreadyWritenBytes = 0;
@@ -77,14 +119,14 @@ void LogServer::forceFlush() noexcept {
 
 void LogServer::write(LogLevel level, std::string_view formatted, std::string_view tag) {
 #if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
-    static int pid = getpid();
-    thread_local static int tid = gettid();
+    thread_local static int tCurThreadId = gettid();
 #elif defined (__WIN32) || defined(__WIN64) || defined(WIN32)
-    static int pid = GetCurrentProcessId();
-    thread_local static int tid = GetCurrentThreadId();
+    thread_local static int tCurThreadId = GetCurrentThreadId();
 #else
     #error "Not support platform!"
 #endif
+    thread_local static std::string tCurThreadIdStr = simpletcp::format("{:5d}", tCurThreadId);
+
     constexpr auto log_level_to_string= [] (LogLevel l) {
         switch (l) {
             case LogLevel::Version:
@@ -133,10 +175,10 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
     std::vector<char> logBuffer;
     logBuffer.reserve(32);
     simpletcp::format_to(std::back_inserter(logBuffer)
-            , "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:03d} {:5d} {:5d} [{}][{}] {}\n"
+            , "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:03d} {} {} [{}][{}] {}\n"
             , timeStruct.tm_year + 1900, timeStruct.tm_mon + 1, timeStruct.tm_mday
             , timeStruct.tm_hour, timeStruct.tm_min, timeStruct.tm_sec, millisSuffix
-            , pid, tid
+            , mProcessIdStr, tCurThreadIdStr
             , log_level_to_string(level), tag
             , formatted
             );
@@ -145,10 +187,10 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
     // Use C-style snprintf to format log string. Faster than fmt...
     std::array<char, LOG_MAX_LINE_SIZE> logBuffer;
     auto len = snprintf(logBuffer.data(), logBuffer.size()
-            , "%04d-%02d-%02d %02d:%02d:%02d.%03d %05d %05d [%s][%s] %s\n"
+            , "%04d-%02d-%02d %02d:%02d:%02d.%03d %s %s [%s][%s] %s\n"
             , timeStruct.tm_year + 1900, timeStruct.tm_mon + 1, timeStruct.tm_mday
             , timeStruct.tm_hour, timeStruct.tm_min, timeStruct.tm_sec, static_cast<int>(millisSuffix)
-            , pid, tid
+            , mProcessIdStr.c_str(), tCurThreadIdStr.c_str()
             , log_level_to_string(level), tag.data()
             , formatted.data()
     );
@@ -161,21 +203,29 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
 
     std::lock_guard lock { mMutex };
     // Write log line to memory buffer.
+    [[likely]]
     if (mpCurrentBuffer->writable(logLine.size())) {
         mpCurrentBuffer->write(logLine);
     } else {
-        // Current buffer is full, need to flush.
-        mvPendingBuffers.emplace_back(std::move(mpCurrentBuffer));
-        // And get new availble buffer.
-        if (mvAvailbleBuffers.empty()) {
-            mpCurrentBuffer = std::make_unique<LogBuffer>();
+        if (mvPendingBuffers.size() <= MAX_PENDING_BUFFERS) {
+            // Current buffer is full, need to flush.
+            mvPendingBuffers.emplace_back(std::move(mpCurrentBuffer));
+            // And get new availble buffer.
+            if (mvAvailbleBuffers.empty()) {
+                mpCurrentBuffer = std::make_unique<LogBuffer>();
+            } else {
+                mpCurrentBuffer = std::move(mvAvailbleBuffers.back());
+                mvAvailbleBuffers.pop_back();
+            }
+            mpCurrentBuffer->write(logLine);
+            // Notify backend server to flush pending buffers.
+            mCond.notify_one();
         } else {
-            mpCurrentBuffer = std::move(mvAvailbleBuffers.back());
-            mvAvailbleBuffers.pop_back();
+            // There has too much pending buffers.
+            // Discard new log request, and just notify asynchronous thread to flush pending buffers.
+            std::cerr << "[LogServer] Too much pending buffers!" << std::endl;
+            mCond.notify_one();
         }
-        mpCurrentBuffer->write(logLine);
-        // Notify backend server to flush pending buffers.
-        mCond.notify_one();
     }
 }
 
@@ -251,7 +301,7 @@ std::fstream LogServer::createLogFileStream() {
         std::filesystem::create_directory(DEFAULT_LOG_PATH);
         std::filesystem::permissions(DEFAULT_LOG_PATH, std::filesystem::perms::all);
     } catch (...) {
-        std::cerr << "Failed to create log file!" << strerror(errno) << std::endl;
+        std::cerr << "[LogServer] Failed to create log file!" << strerror(errno) << std::endl;
         throw SystemException("Can't create log filePath because:");
     }
 
@@ -262,18 +312,19 @@ std::fstream LogServer::createLogFileStream() {
     // No need to check result. it would throw exception.
     ::gmtime_r(&t, &now);
 
-    auto filePath = simpletcp::format("{}/{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}.log"
+    auto filePath = simpletcp::format("{}/{}_{:d}_{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}.log"
             , DEFAULT_LOG_PATH
+            , mProcessName.data()
+            , mProcessId
             , now.tm_year + 1900, now.tm_mon + 1, now.tm_mday
             , now.tm_hour, now.tm_min, now.tm_sec
     );
 
     // Create log file.
     try {
-        auto fileStream = std::fstream(filePath.data(), std::ios::in | std::ios::out | std::ios::trunc);
+        auto fileStream = std::fstream(filePath, std::ios::in | std::ios::out | std::ios::trunc);
         return fileStream;
     } catch (...) {
-        std::cerr << "Failed to create log file!" << strerror(errno) << std::endl;
         throw SystemException("Can't create log file because:");
     }
 }

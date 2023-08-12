@@ -43,6 +43,14 @@ private:
 
 
 namespace simpletcp {
+
+// Check is DEFAULT_LOG_LEVEL a valid value.
+static_assert(static_cast<int>(LogLevel::Version) <= DEFAULT_LOG_LEVEL
+        , "[Log] DEFAULT_LOG_LEVEL is smaller than LogLevel::Version!");
+
+static_assert(DEFAULT_LOG_LEVEL <= static_cast<int>(LogLevel::Error)
+        , "[Log] DEFAULT_LOG_LEVEL is bigger than LogLevel::Error!");
+
 #define LOG_VER(fmt, ...)                                                       \
     if constexpr (static_cast<int>(LogLevel::Version) >= DEFAULT_LOG_LEVEL) {   \
         do {                                                                    \

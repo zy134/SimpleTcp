@@ -4,12 +4,10 @@
 #include "base/Format.h"
 #include <chrono>
 #include <fstream>
-#include <iterator>
 #include <mutex>
 #include <string_view>
 #include <thread>
 #include <condition_variable>
-#include <utility>
 #include <vector>
 
 namespace simpletcp::detail {
@@ -58,8 +56,11 @@ private:
     // Default interval time which LogServer would flush all current buffer to log file.
     static constexpr auto DEFAULT_FLUSH_INTERVAL = std::chrono::milliseconds(2000);
 
+    // If there has too much pending buffers in log backend, discard new log request from clients.
+    static constexpr auto MAX_PENDING_BUFFERS = 6;
+
     std::fstream            mLogFileStream;
-    LogBuffer::SizeType     mLogAlreadyWritenBytes;
+    LogBuffer::size_type    mLogAlreadyWritenBytes;
 
     std::mutex              mMutex;
     std::condition_variable mCond;
@@ -72,6 +73,10 @@ private:
                             mvAvailbleBuffers;
     std::vector<std::unique_ptr<LogBuffer>>
                             mvPendingBuffers;
+
+    int                     mProcessId;
+    std::string             mProcessIdStr;
+    std::string             mProcessName;
 };
 
 } // namespace simpletcp::detail
