@@ -1,4 +1,5 @@
 #include "tcp/TcpServer.h"
+#include "base/Format.h"
 #include "net/Channel.h"
 #include "net/Socket.h"
 #include "tcp/TcpBuffer.h"
@@ -38,7 +39,8 @@ TcpServer::TcpServer(TcpServerArgs args)
     // create listen channel.
     mpListenChannel = Channel::createChannel(mpListenSocket->getFd(), args.loop);
 
-    mpListenChannel->setChannelInfo("Listen Channel");
+    auto channelInfo = simpletcp::format("Server listen in port {}", mpListenSocket->getPort());
+    mpListenChannel->setChannelInfo(channelInfo);
     mpListenChannel->setReadCallback([&] {
         LOG_INFO("[ReadCallback] new client is arrived.");
         createNewConnection();

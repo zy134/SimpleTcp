@@ -1,5 +1,6 @@
 #include "base/Log.h"
 #include "base/StringHelper.h"
+#include "http/HttpCommon.h"
 #include "http/HttpError.h"
 #include "http/HttpRequest.h"
 #include <string_view>
@@ -13,6 +14,7 @@ static constexpr std::string_view BLANK_LINE = "\r\n\r\n";
 
 namespace simpletcp::http {
 
+// TODO : Parse request by regex
 static bool parseHttpRequestLine(std::string_view requestLine, HttpRequest& request) {
     TRACE();
     if (requestLine.empty()) {
@@ -29,13 +31,22 @@ static bool parseHttpRequestLine(std::string_view requestLine, HttpRequest& requ
             return false;
         }
         auto url_start = requestLine.find('/');
-        auto url_end = requestLine.find("HTTP");
+        auto url_end = requestLine.find('?');
         if (url_start == std::string_view::npos) {
             LOG_ERR("parseHttpRequestLine: parse error, bad request!");
             return false;
         }
+        if (url_end == std::string_view::npos) {
+            // no query parameters
+            url_end = requestLine.find("HTTP");
+        } else {
+            auto query_begin = url_end;
+            auto query_end = requestLine.find("HTTP");
+            request.mQueryParameters = std::string { requestLine.data() + query_begin, query_end - query_begin };
+        }
         url_start += 1;
         request.mUrl = std::string { requestLine.data() + url_start, url_end - url_start };
+        request.mUrl = utils::strip(request.mUrl);
         return true;
     };
     if (requestLine.find("GET") != std::string_view::npos) {
@@ -89,7 +100,18 @@ HttpRequest parseHttpRequest(std::string_view rawHttpPacket) {
     };
 
     TRACE();
-    HttpRequest request;
+    HttpRequest request {
+        .mUrl {},
+        .mQueryParameters {},
+        .mType = HttpRequestType::UNKNOWN,
+        .mVersion = HttpVersion::UNKNOWN,
+        .mIsKeepAlive = false,
+        .mHeaders {},
+        .mBody {},
+        .mRawRequest {},
+        .mRequestSize = 0,
+    };
+    request.mIsKeepAlive = false;
     ParseState state = ParseState::Request;
     std::string_view::size_type start_pos = 0, end_pos = 0;
 
@@ -181,7 +203,7 @@ HttpRequest parseHttpRequest(std::string_view rawHttpPacket) {
             case ParseState::BadRequest:
             default:
                 LOG_ERR("{}: BadRequest!", __FUNCTION__);
-                throw HttpException {"[HttpRequest] Parse error", HttpErrorType::BadRequest};
+                throw RequestError {"[HttpRequest] Parse error", RequestErrorType::BadRequest};
         }
     }
 }

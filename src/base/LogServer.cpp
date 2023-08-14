@@ -4,7 +4,6 @@
 #include "base/LogConfig.h"
 #include "base/StringHelper.h"
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <chrono>
@@ -58,7 +57,7 @@ static std::string getLinuxProcessName() {
 
 namespace simpletcp::detail {
 
-LogServer::LogServer() {
+LogServer::LogServer() : mCurrentDate(duration_cast<days>(system_clock::now().time_since_epoch())) {
     // Initialize static variables
 #if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
     mProcessId = ::getpid();
@@ -147,37 +146,35 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
     };
 
 
-// Get timestamp.
-// #if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
-// The precise of CLOCK_REALTIME_COARSE is too low, instead we use std::system_clock to get current time.
-#if 0
-    std::timespec tp {};
-    [[unlikely]]
-    if (::clock_gettime(CLOCK_REALTIME_COARSE, &tp) != 0) {
-        throw SystemException {"[LogServer] invoke clock_gettime failed."};
+    // Get date.
+    thread_local static chrono::days tCurDate;
+    thread_local static std::string tCurDateStr;
+    if (tCurDate < mCurrentDate) {
+        tCurDate = mCurrentDate;
+        auto t = system_clock::to_time_t(system_clock::now());
+        std::tm date;
+        if (::gmtime_r(&t, &date) == nullptr) {
+            throw SystemException {"[LogServer] invoke gmtime_r failed."};
+        }
+        tCurDateStr = simpletcp::format("{:04d}-{:02d}-{:02d}"
+                , date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
     }
-    std::time_t curTime = tp.tv_sec;
-    auto millisSuffix = tp.tv_nsec / 1'000'000;
-#else
-    auto now = system_clock::now();
-    std::time_t curTime = system_clock::to_time_t(now);
-    auto millisSuffix = duration_cast<milliseconds>(now.time_since_epoch()).count() % 1000;
-#endif
 
-    std::tm timeStruct {};
-    [[unlikely]]
-    if (::gmtime_r(&curTime, &timeStruct) == nullptr) {
-        throw SystemException {"[LogServer] invoke gmtime_r failed."};
-    }
+    // Get timestamp
+    auto timestamp = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    auto suffix = timestamp - tCurDate;
+    auto suffixHour = duration_cast<hours>(suffix); suffix -= suffixHour;
+    auto suffixMin = duration_cast<minutes>(suffix); suffix -= suffixMin;
+    auto suffixSec = duration_cast<seconds>(suffix); suffix -= suffixSec;
 
 #if LOG_STYLE_FMT
     // Use libfmt to format log string.
-    std::vector<char> logBuffer;
-    logBuffer.reserve(32);
+    std::vector<char> logBuffer {};
+    logBuffer.reserve(64);
     simpletcp::format_to(std::back_inserter(logBuffer)
-            , "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:03d} {} {} [{}][{}] {}\n"
-            , timeStruct.tm_year + 1900, timeStruct.tm_mon + 1, timeStruct.tm_mday
-            , timeStruct.tm_hour, timeStruct.tm_min, timeStruct.tm_sec, millisSuffix
+            , "{} {:02d}:{:02d}:{:02d}.{:03d} {} {} [{}][{}] {}\n"
+            , tCurDateStr
+            , suffixHour.count(), suffixMin.count(), suffixSec.count(), suffix.count()
             , mProcessIdStr, tCurThreadIdStr
             , log_level_to_string(level), tag
             , formatted
@@ -288,6 +285,8 @@ void LogServer::doFlushAsync() {
             }
             needFlushBuffers.clear();
         }
+        // update date in flush thread.
+        mCurrentDate = duration_cast<days>(system_clock::now().time_since_epoch());
     }
 
 }

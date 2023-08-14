@@ -67,16 +67,24 @@ private:
     std::thread             mFlushThread;
     bool                    mStopThread;
     bool                    mNeedFlushNow;
+
+    // The buffer currently in use.
     std::unique_ptr<LogBuffer>
                             mpCurrentBuffer;
+    // The empty buffers availble for clients.
     std::vector<std::unique_ptr<LogBuffer>>
                             mvAvailbleBuffers;
+    // The buffers wait for flushing.
     std::vector<std::unique_ptr<LogBuffer>>
                             mvPendingBuffers;
 
+    // Process information. The instance of LogServer is static, so just save the status info in data members.
     int                     mProcessId;
     std::string             mProcessIdStr;
     std::string             mProcessName;
+
+    // Current date, use for reducing the parameters to be format
+    std::chrono::days       mCurrentDate;
 };
 
 } // namespace simpletcp::detail

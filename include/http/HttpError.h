@@ -1,23 +1,59 @@
 #pragma once
 
-#include <exception>
+#include "http/HttpCommon.h"
+#include "http/HttpRequest.h"
 #include <stdexcept>
 
 namespace simpletcp::http {
 
-enum class HttpErrorType {
+enum class RequestErrorType {
     BadRequest,
-    BadResponse,
+    UnsupportMethod,
 };
 
-class HttpException : public std::runtime_error {
+enum class ResponseErrorType {
+    BadResponse,
+    BadContentType,
+    BadContent,
+    BadVersion,
+    BadStatus,
+};
+
+inline constexpr std::string_view to_string_view(RequestErrorType type) {
+    switch (type) {
+        case RequestErrorType::BadRequest: return "BadRequest";
+        case RequestErrorType::UnsupportMethod: return "UnsupportMethod";
+    }
+}
+
+inline constexpr std::string_view to_string_view(ResponseErrorType type) {
+    switch (type) {
+        case ResponseErrorType::BadResponse: return "BadResponse";
+        case ResponseErrorType::BadContentType: return "BadContentType";
+        case ResponseErrorType::BadContent: return "BadContent";
+        case ResponseErrorType::BadVersion: return "BadVersion";
+        case ResponseErrorType::BadStatus: return "BadStatus";
+    }
+}
+
+class RequestError : public std::runtime_error {
 public:
-    HttpException(const std::string& msg, HttpErrorType type) : std::runtime_error(msg), mErrorType(type) {}
+    RequestError(const std::string& msg, RequestErrorType type) : std::runtime_error(msg), mErrorType(type) {}
 
     [[nodiscard]]
     auto getErrorType() const noexcept { return mErrorType; }
 private:
-    HttpErrorType mErrorType;
+    RequestErrorType mErrorType;
+};
+
+class ResponseError : public std::runtime_error {
+public:
+    ResponseError(const std::string& msg, ResponseErrorType type) : std::runtime_error(msg), mErrorType(type) {}
+
+    [[nodiscard]]
+    auto getErrorType() const noexcept { return mErrorType; }
+private:
+    ResponseErrorType mErrorType;
 };
 
 } // namespace simpletcp::http

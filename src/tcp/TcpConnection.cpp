@@ -1,4 +1,5 @@
 #include "base/Error.h"
+#include "base/Format.h"
 #include "base/Log.h"
 #include "base/Utils.h"
 #include "net/Channel.h"
@@ -42,7 +43,8 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
     mPeerAddr = mpSocket->getPeerAddr();
 
     mpChannel = net::Channel::createChannel(mpSocket->getFd(), loop);
-    mpChannel->setChannelInfo("Connection Channel");
+    mpChannel->setChannelInfo(simpletcp::format("Connection [{}_{}]"
+                , mpSocket->getLocalAddr().mIpAddr, mpSocket->getPort()));
     mpChannel->setWriteCallback([this] () {
         handleWrite();
     });

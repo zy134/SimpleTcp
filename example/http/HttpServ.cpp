@@ -1,4 +1,7 @@
 #include "base/Log.h"
+#include "http/HttpCommon.h"
+#include "http/HttpRequest.h"
+#include "http/HttpResponse.h"
 #include "net/EventLoop.h"
 #include "tcp/TcpConnection.h"
 #include "tcp/TcpServer.h"
@@ -17,7 +20,7 @@ inline static const SocketAddr serverAddr {
     .mPort = 8848
 };
 
-inline static constexpr auto MAX_LISTEN_QUEUE = 10;
+inline static constexpr auto MAX_LISTEN_QUEUE = 1000;
 
 inline static constexpr std::string_view TAG = "HttpServ";
 
@@ -29,6 +32,19 @@ void onConnection(const TcpConnectionPtr& conn) {
     }
 }
 
+void handleRequest(const HttpRequest& request, HttpResponse& response) {
+    response.setVersion(HttpVersion::HTTP1_1);
+    response.setStatus(HttpStatusCode::OK);
+    response.setDate();
+    if (request.mUrl.empty()) {
+        response.setKeepAlive(true);
+        response.setContentByFilePath("index.html", HttpContentType::HTML);
+    } else {
+        response.setKeepAlive(false);
+        response.setContentByFilePath("img.jpg", HttpContentType::JPEG);
+    }
+}
+
 HttpServerArgs initArgs {
     .serverAddr = serverAddr,
     .maxListenQueue = MAX_LISTEN_QUEUE,
@@ -37,6 +53,8 @@ HttpServerArgs initArgs {
 
 int main() try {
     HttpServer server(std::move(initArgs));
+    server.setConnectionCallback(onConnection);
+    server.setHttpRequestCallback(handleRequest);
     server.start();
 } catch (...) {
     LOG_ERR("{}", __FUNCTION__);

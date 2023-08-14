@@ -129,7 +129,7 @@ void EventLoop::startLoop() {
             mpCurrentChannel = channel;
             [[likely]]
             if (mpPoller->hasChannel(channel)) {
-                LOG_DEBUG("{}: current channel({}), fd({}), info({})"
+                LOG_INFO("{}: current channel({}), fd({}), info({})"
                         , __FUNCTION__, static_cast<void *>(mpCurrentChannel)
                         , mpCurrentChannel->getFd(), mpCurrentChannel->getInfo());
                 channel->handleEvent();

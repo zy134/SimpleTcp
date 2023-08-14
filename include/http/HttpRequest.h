@@ -13,9 +13,10 @@ struct HttpRequest {
     std::string                 mQueryParameters;
     HttpRequestType             mType;
     HttpVersion                 mVersion;
+    bool                        mIsKeepAlive;
+
     std::unordered_map<std::string, std::string>
                                 mHeaders;
-    bool                        mIsKeepAlive;
     std::string                 mBody;
     // Raw request data.
     std::string                 mRawRequest;
