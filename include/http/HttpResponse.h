@@ -15,10 +15,10 @@ namespace simpletcp::http {
 class HttpResponse final {
     friend class HttpServer;
 public:
-    HttpResponse(HttpVersion version, std::vector<EncodingType> encodings)
-        : mStatus(HttpStatusCode::UNKNOWN)
+    HttpResponse(Version version, std::vector<EncodingType> encodings)
+        : mStatus(StatusCode::UNKNOWN)
         , mVersion(version)
-        , mContentType(HttpContentType::UNKNOWN)
+        , mContentType(ContentType::UNKNOWN)
         , mIsKeepAlive(false)
         , mCharSet(CharSet::UNKNOWN)
         , mAvailEncodings(std::move(encodings))
@@ -27,8 +27,8 @@ public:
     HttpResponse(HttpResponse&&) = default;
     DISABLE_COPY(HttpResponse);
     
-    void setStatus(HttpStatusCode status) noexcept { mStatus = status; }
-    void setVersion(HttpVersion version) noexcept { mVersion = version; }
+    void setStatus(StatusCode status) noexcept { mStatus = status; }
+    void setVersion(Version version) noexcept { mVersion = version; }
     void setKeepAlive(bool enable) noexcept { mIsKeepAlive = enable; }
     void setCharSet(CharSet charSet) { mCharSet = charSet; }
     void setDate();
@@ -39,16 +39,16 @@ private:
     void setBody(std::string&& body) noexcept { mBody = std::move(body); }
     void setProperty(std::string_view key, std::string_view value);
     auto getProperty(std::string_view key) -> std::optional<std::string_view>;
-    void setContentType(HttpContentType contentType) noexcept { mContentType = contentType; }
+    void setContentType(ContentType contentType) noexcept { mContentType = contentType; }
     void setContentLength(size_t contentLength) { mContentLength = contentLength; }
     EncodingType selectEncodeType(const std::filesystem::path& filePath) const;
     void dump() const;
     // Internal method. Invoked by HttpServer.
     std::string generateResponse();
 
-    HttpStatusCode              mStatus;
-    HttpVersion                 mVersion;
-    HttpContentType             mContentType;
+    StatusCode                  mStatus;
+    Version                     mVersion;
+    ContentType                 mContentType;
     size_t                      mContentLength;
     bool                        mIsKeepAlive;
     CharSet                     mCharSet;

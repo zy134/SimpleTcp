@@ -30,9 +30,9 @@ static bool parseStartLine(std::string_view requestLine, HttpRequest& request) {
     }
     const auto parser = [&] {
         if (requestLine.find("HTTP/1.1") != std::string_view::npos) {
-            request.mVersion = HttpVersion::HTTP1_1;
+            request.mVersion = Version::HTTP1_1;
         } else if (requestLine.find("HTTP/1.0") != std::string_view::npos) {
-            request.mVersion = HttpVersion::HTTP1_0;
+            request.mVersion = Version::HTTP1_0;
         } else {
             LOG_ERR("parseStartLine: parse error, unknown http version!");
             return false;
@@ -56,11 +56,11 @@ static bool parseStartLine(std::string_view requestLine, HttpRequest& request) {
         return true;
     };
     if (requestLine.find("GET") != std::string_view::npos) {
-        request.mType = HttpRequestType::GET;
+        request.mType = RequestType::GET;
         if (!parser())
             return false;
     } else if (requestLine.find("POST") != std::string_view::npos) {
-        request.mType = HttpRequestType::POST;
+        request.mType = RequestType::POST;
         if (!parser())
             return false;
     } else {
@@ -80,13 +80,13 @@ static bool parseHeaders(std::string_view headers, HttpRequest& request) {
     };
 
     constexpr auto to_content_type = [] (std::string_view type) {
-        if (type == to_string_view(HttpContentType::HTML)) return HttpContentType::HTML;
-        if (type == to_string_view(HttpContentType::JSON)) return HttpContentType::JSON;
-        if (type == to_string_view(HttpContentType::JPEG)) return HttpContentType::JPEG;
-        if (type == to_string_view(HttpContentType::PNG)) return HttpContentType::PNG;
-        if (type == to_string_view(HttpContentType::GIF)) return HttpContentType::GIF;
-        if (type == to_string_view(HttpContentType::PLAIN)) return HttpContentType::PLAIN;
-        return HttpContentType::UNKNOWN;
+        if (type == to_string_view(ContentType::HTML)) return ContentType::HTML;
+        if (type == to_string_view(ContentType::JSON)) return ContentType::JSON;
+        if (type == to_string_view(ContentType::JPEG)) return ContentType::JPEG;
+        if (type == to_string_view(ContentType::PNG)) return ContentType::PNG;
+        if (type == to_string_view(ContentType::GIF)) return ContentType::GIF;
+        if (type == to_string_view(ContentType::PLAIN)) return ContentType::PLAIN;
+        return ContentType::UNKNOWN;
     };
     //
 
@@ -128,10 +128,10 @@ static bool parseHeaders(std::string_view headers, HttpRequest& request) {
         }
     }
     // Set content info.
-    if (request.mType != HttpRequestType::GET) {
+    if (request.mType != RequestType::GET) {
         if (auto iter = request.mHeaders.find("Content-Type"); iter != request.mHeaders.end()) {
             auto content_type = to_content_type(iter->second);
-            if (content_type == HttpContentType::UNKNOWN) {
+            if (content_type == ContentType::UNKNOWN) {
                 LOG_ERR("{}: Unknown content type!", __FUNCTION__);
                 return false;
             }
@@ -221,7 +221,7 @@ HttpRequest parseHttpRequest(std::string_view rawHttpPacket) {
                 // Make sure start_pos not CRLF.
                 start_pos = end_pos + CRLF.size();
                 end_pos = rawHttpPacket.size();
-                if (request.mType == HttpRequestType::GET) {
+                if (request.mType == RequestType::GET) {
                     LOG_DEBUG("{}: Accept Get request, ignore size check.", __FUNCTION__);
                 } else {
                     auto content_length = end_pos - start_pos;

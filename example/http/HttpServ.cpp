@@ -34,8 +34,8 @@ void onConnection(const TcpConnectionPtr& conn) {
 }
 
 void handleRequest(const HttpRequest& request, HttpResponse& response) {
-    response.setVersion(HttpVersion::HTTP1_1);
-    response.setStatus(HttpStatusCode::OK);
+    response.setVersion(Version::HTTP1_1);
+    response.setStatus(StatusCode::OK);
     response.setDate();
     if (request.mUrl.empty()) {
         response.setKeepAlive(true);

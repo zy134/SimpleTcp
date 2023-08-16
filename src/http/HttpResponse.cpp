@@ -28,14 +28,14 @@ inline static constexpr std::string_view CRLF = "\r\n";
 
 namespace simpletcp::http {
 
-const std::unordered_map<std::string_view, HttpContentType> Str2ContentType {
-    { ".html", HttpContentType::HTML },
-    { ".jpg", HttpContentType::JPEG },
-    { ".png", HttpContentType::PNG },
-    { ".txt", HttpContentType::PLAIN },
-    { ".js", HttpContentType::JAVASCRIPT },
-    { ".json", HttpContentType::JAVASCRIPT },
-    { ".xml", HttpContentType::XML },
+const std::unordered_map<std::string_view, ContentType> Str2ContentType {
+    { ".html", ContentType::HTML },
+    { ".jpg", ContentType::JPEG },
+    { ".png", ContentType::PNG },
+    { ".txt", ContentType::PLAIN },
+    { ".js", ContentType::JAVASCRIPT },
+    { ".json", ContentType::JAVASCRIPT },
+    { ".xml", ContentType::XML },
 };
 
 static std::string readFile(const std::filesystem::path& filePath) {
@@ -67,9 +67,9 @@ void HttpResponse::setDate() {
 void HttpResponse::setContentByFilePath(const std::filesystem::path& filePath) {
     TRACE();
     try {
-        HttpContentType type;
+        ContentType type;
         if (!filePath.has_extension()) {
-            type = HttpContentType::BINARY;
+            type = ContentType::BINARY;
         } else {
             if (Str2ContentType.count(filePath.extension().c_str()) == 0) {
                 std::string errMsg = "[setContentByFilePath] unsupport file type! Path:";
@@ -78,19 +78,22 @@ void HttpResponse::setContentByFilePath(const std::filesystem::path& filePath) {
             }
             type = Str2ContentType.at(filePath.extension().c_str());
         }
-        if (selectEncodeType(filePath) == EncodingType::NO_ENCODING) {
+        // Need compress?
+        if (auto selectEncode = selectEncodeType(filePath); selectEncode == EncodingType::NO_ENCODING) {
             LOG_INFO("{}: set content type :{}", __FUNCTION__, to_string_view(type));
             setBody(readFile(filePath));
-            setContentType(type);
-            setContentLength(mBody.size());
         } else {
             LOG_INFO("{}: set content type :{}", __FUNCTION__, to_string_view(type));
-            setBody(utils::deflate(readFile(filePath)));
-            setContentType(type);
-            setContentLength(mBody.size());
-            // TODO: Now just support deflate...
-            setProperty("Content-Encoding", to_string_view(EncodingType::DEFLATE));
+            if (selectEncode == EncodingType::GZIP) {
+                setBody(utils::compress_gzip(readFile(filePath)));
+                setProperty("Content-Encoding", to_string_view(EncodingType::GZIP));
+            } else {
+                setBody(utils::compress_deflate(readFile(filePath)));
+                setProperty("Content-Encoding", to_string_view(EncodingType::DEFLATE));
+            }
         }
+        setContentType(type);
+        setContentLength(mBody.size());
     } catch (const std::exception& e) {
         LOG_ERR("{}: exception happen ! {}", __FUNCTION__, e.what());
         printBacktrace();
@@ -120,11 +123,11 @@ std::string HttpResponse::generateResponse() {
     TRACE();
     // Check is this response valid.
     [[unlikely]]
-    if (mVersion == HttpVersion::UNKNOWN) {
+    if (mVersion == Version::UNKNOWN) {
         throw ResponseError {"[HttpResponse] please set http version correctly!", ResponseErrorType::BadVersion};
     }
     [[unlikely]]
-    if (mStatus == HttpStatusCode::UNKNOWN) {
+    if (mStatus == StatusCode::UNKNOWN) {
         throw ResponseError {"[HttpResponse] please set status code correctly!", ResponseErrorType::BadStatus};
     }
     
@@ -137,7 +140,7 @@ std::string HttpResponse::generateResponse() {
 
     // Generate headers
     // Set content type and length
-    if (mContentType != HttpContentType::UNKNOWN) {
+    if (mContentType != ContentType::UNKNOWN) {
         if (mCharSet != CharSet::UNKNOWN) {
             setProperty("Content-Type", simpletcp::format("{}; {}"
                     , to_string_view(mContentType), to_string_view(mCharSet)));
@@ -189,8 +192,8 @@ void HttpResponse::dump() const {
         LOG_DEBUG("{}: key:{}, value:{}", __FUNCTION__, header.first, header.second);
     }
 
-    if (mContentType == HttpContentType::HTML || mContentType == HttpContentType::PLAIN
-            || mContentType == HttpContentType::JSON || mContentType == HttpContentType::XML) {
+    if (mContentType == ContentType::HTML || mContentType == ContentType::PLAIN
+            || mContentType == ContentType::JSON || mContentType == ContentType::XML) {
         LOG_DEBUG("{}: {}", __FUNCTION__, mBody);
     }
     
@@ -203,8 +206,8 @@ void HttpResponse::dump() const {
         std::cout << "[Response] key:" << header.first << ", value: " << header.second << std::endl;
     }
 
-    if (mContentType == HttpContentType::HTML || mContentType == HttpContentType::PLAIN
-            || mContentType == HttpContentType::JSON || mContentType == HttpContentType::XML) {
+    if (mContentType == ContentType::HTML || mContentType == ContentType::PLAIN
+            || mContentType == ContentType::JSON || mContentType == ContentType::XML) {
         std::cout << "[Response] " << mBody << std::endl;
     }
 }

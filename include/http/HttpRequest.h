@@ -14,9 +14,9 @@ struct HttpRequest {
         : mUrl()
         , mHost()
         , mQueryParameters()
-        , mType(HttpRequestType::UNKNOWN)
-        , mVersion(HttpVersion::UNKNOWN)
-        , mContentType(HttpContentType::UNKNOWN)
+        , mType(RequestType::UNKNOWN)
+        , mVersion(Version::UNKNOWN)
+        , mContentType(ContentType::UNKNOWN)
         , mContentLength(0)
         , mIsKeepAlive(false)
         , mAcceptEncodings()
@@ -29,9 +29,9 @@ struct HttpRequest {
     std::string                 mUrl;
     std::string                 mHost;
     std::string                 mQueryParameters;
-    HttpRequestType             mType;
-    HttpVersion                 mVersion;
-    HttpContentType             mContentType;
+    RequestType                 mType;
+    Version                     mVersion;
+    ContentType                 mContentType;
     size_t                      mContentLength;
     bool                        mIsKeepAlive;
     std::vector<EncodingType>
