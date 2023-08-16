@@ -43,12 +43,13 @@ void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
     try {
         auto request = parseHttpRequest(rawHttpPacket);
         request.mRawRequest = conn->extractString(request.mRequestSize);
-        if (mRequestCb) {
+        if (mRequestHandle) {
             LOG_INFO("{}: send response.", __FUNCTION__);
-            HttpResponse response;
-            mRequestCb(request, response);
+            HttpResponse response { request.mVersion, request.mAcceptEncodings };
+            mRequestHandle(request, response);
             conn->sendString(response.generateResponse());
             response.dump();
+            dumpHttpRequest(request);
             if (!response.isKeepAlive()) {
                 conn->shutdownConnection();
             }

@@ -13,18 +13,18 @@ struct HttpServerArgs {
     int maxThreadNum;
 };
 
-class HttpServer {
+class HttpServer final {
 public:
-    using HttpRequestCallback = std::function<void (const HttpRequest&, HttpResponse&)>;
+    using RequestHandle = std::function<void (const HttpRequest&, HttpResponse&)>;
     HttpServer(HttpServerArgs args);
     void setConnectionCallback(tcp::TcpConnectionCallback&& cb) noexcept { mConnectionCb = std::move(cb); }
-    void setHttpRequestCallback(HttpRequestCallback&& cb) noexcept { mRequestCb = std::move(cb); }
+    void setRequestHandle(RequestHandle&& cb) noexcept { mRequestHandle = std::move(cb); }
     void start();
 private:
     net::EventLoop              mLoop;
     tcp::TcpServer              mTcpServer;
     tcp::TcpConnectionCallback  mConnectionCb;
-    HttpRequestCallback         mRequestCb;
+    RequestHandle               mRequestHandle;
 
     void onMessage(const tcp::TcpConnectionPtr& conn);
 };

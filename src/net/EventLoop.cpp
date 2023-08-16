@@ -129,9 +129,10 @@ void EventLoop::startLoop() {
             mpCurrentChannel = channel;
             [[likely]]
             if (mpPoller->hasChannel(channel)) {
-                LOG_INFO("{}: current channel({}), fd({}), info({})"
+                LOG_INFO("{}: current channel({}), fd({})"
                         , __FUNCTION__, static_cast<void *>(mpCurrentChannel)
-                        , mpCurrentChannel->getFd(), mpCurrentChannel->getInfo());
+                        , mpCurrentChannel->getFd());
+                LOG_INFO("{}: channel info: {}", __FUNCTION__, mpCurrentChannel->getInfo());
                 channel->handleEvent();
             } else {
                 LOG_ERR("{}: this channel {} has removed by other channel, exception count {}"

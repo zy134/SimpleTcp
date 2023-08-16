@@ -25,6 +25,7 @@ inline static constexpr auto MAX_LISTEN_QUEUE = 1000;
 inline static constexpr std::string_view TAG = "HttpServ";
 
 void onConnection(const TcpConnectionPtr& conn) {
+    TRACE();
     if (conn->isConnected()) {
         std::cout << "Connected" << std::endl;
     } else {
@@ -38,10 +39,11 @@ void handleRequest(const HttpRequest& request, HttpResponse& response) {
     response.setDate();
     if (request.mUrl.empty()) {
         response.setKeepAlive(true);
-        response.setContentByFilePath("index.html", HttpContentType::HTML);
+        response.setContentByFilePath("index.html");
     } else {
+        std::cout << "[HttpServ] client acquire for " << request.mUrl << std::endl;
         response.setKeepAlive(false);
-        response.setContentByFilePath("img.jpg", HttpContentType::JPEG);
+        response.setContentByFilePath("img.jpg");
     }
 }
 
@@ -54,7 +56,7 @@ HttpServerArgs initArgs {
 int main() try {
     HttpServer server(std::move(initArgs));
     server.setConnectionCallback(onConnection);
-    server.setHttpRequestCallback(handleRequest);
+    server.setRequestHandle(handleRequest);
     server.start();
 } catch (...) {
     LOG_ERR("{}", __FUNCTION__);

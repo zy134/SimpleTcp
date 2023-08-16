@@ -2,58 +2,58 @@
 #include "base/Utils.h"
 #include "http/HttpCommon.h"
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 #include <unordered_map>
 #include <filesystem>
 
 namespace simpletcp::http {
 
-class HttpResponse {
+class HttpResponse final {
+    friend class HttpServer;
 public:
-    HttpResponse()
+    HttpResponse(HttpVersion version, std::vector<EncodingType> encodings)
         : mStatus(HttpStatusCode::UNKNOWN)
-        , mVersion(HttpVersion::UNKNOWN)
+        , mVersion(version)
         , mContentType(HttpContentType::UNKNOWN)
         , mIsKeepAlive(false)
         , mCharSet(CharSet::UNKNOWN)
+        , mAvailEncodings(std::move(encodings))
     {}
-
+    // Enable move, disable copy.
+    HttpResponse(HttpResponse&&) = default;
     DISABLE_COPY(HttpResponse);
-
-    void setKeepAlive(bool enable) noexcept { mIsKeepAlive = enable; }
+    
     void setStatus(HttpStatusCode status) noexcept { mStatus = status; }
     void setVersion(HttpVersion version) noexcept { mVersion = version; }
+    void setKeepAlive(bool enable) noexcept { mIsKeepAlive = enable; }
     void setCharSet(CharSet charSet) { mCharSet = charSet; }
     void setDate();
-
-    void setContentByFilePath(const std::filesystem::path& path, HttpContentType type);
-
-    void setContent(std::string&& content, HttpContentType type) {
-        setBody(std::move(content));
-        setContentLenght(content.size());
-        setContentType(type);
-    }
-
+    void setContentByFilePath(const std::filesystem::path& path);
     bool isKeepAlive() const noexcept { return mIsKeepAlive; }
 
+private:
+    void setBody(std::string&& body) noexcept { mBody = std::move(body); }
+    void setProperty(std::string_view key, std::string_view value);
+    auto getProperty(std::string_view key) -> std::optional<std::string_view>;
+    void setContentType(HttpContentType contentType) noexcept { mContentType = contentType; }
+    void setContentLength(size_t contentLength) { mContentLength = contentLength; }
+    EncodingType selectEncodeType(const std::filesystem::path& filePath) const;
     void dump() const;
-
     // Internal method. Invoked by HttpServer.
     std::string generateResponse();
-private:
-    // Not offer overload function of copy version. Because the body may be so big.
-    void setBody(std::string&& body) noexcept { mBody = std::move(body); }
-    void setContentType(HttpContentType contentType) noexcept { mContentType = contentType; }
-    void setContentLenght(size_t contentLength) { addHeader("Content-Length", std::to_string(contentLength)); }
-    void addHeader(std::string_view key, std::string_view value);
 
     HttpStatusCode              mStatus;
     HttpVersion                 mVersion;
     HttpContentType             mContentType;
+    size_t                      mContentLength;
     bool                        mIsKeepAlive;
     CharSet                     mCharSet;
+    std::vector<EncodingType>
+                                mAvailEncodings;
     std::unordered_map<std::string, std::string>
                                 mHeaders;
     std::string                 mBody;

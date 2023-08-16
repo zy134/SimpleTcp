@@ -43,8 +43,10 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
     mPeerAddr = mpSocket->getPeerAddr();
 
     mpChannel = net::Channel::createChannel(mpSocket->getFd(), loop);
-    mpChannel->setChannelInfo(simpletcp::format("Connection [{}_{}]"
-                , mpSocket->getLocalAddr().mIpAddr, mpSocket->getPort()));
+    mpChannel->setChannelInfo(simpletcp::format("Conn [{}_{}_{}_{}]"
+        , mpSocket->getLocalAddr().mIpAddr, mpSocket->getLocalAddr().mPort
+        , mpSocket->getPeerAddr().mIpAddr, mpSocket->getPeerAddr().mPort
+    ));
     mpChannel->setWriteCallback([this] () {
         handleWrite();
     });
