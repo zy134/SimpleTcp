@@ -8,9 +8,6 @@
 #include "tcp/TcpBuffer.h"
 #include "tcp/TcpConnection.h"
 #include <bits/types/struct_tm.h>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -215,19 +212,12 @@ void TcpConnection::sendInLoop(span_type data) {
         return ;
     }
     mSendBuffer.appendToBuffer(data);
+    // TODO: slow down throught of socket.
     if (mSendBuffer.size() > TCP_HIGH_WATER_MARK && mHighWaterMarkCb) {
-        mpEventLoop->queueInLoop([&, guard = shared_from_this()] {
-            mHighWaterMarkCb(guard);
-        });
+        mHighWaterMarkCb(shared_from_this());
     }
     if (!mpChannel->isWriting()) {
-        if (mpEventLoop->isInLoopThread()) {
-            mpChannel->enableWrite();
-        } else {
-            mpEventLoop->queueInLoop([&] {
-                mpChannel->enableWrite();
-            });
-        }
+        mpChannel->enableWrite();
     }
 }
 

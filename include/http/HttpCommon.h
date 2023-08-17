@@ -43,6 +43,7 @@ enum class ContentType {
     JAVASCRIPT,
     XML,
     JSON,
+    MP4,
     OTHER,
 };
 
@@ -99,13 +100,14 @@ inline constexpr std::string_view to_string_view(Version ver) {
 
 inline constexpr std::string_view to_string_view(ContentType type) {
     switch (type) {
+        case ContentType::BINARY: return "application/octet-stream";
         case ContentType::HTML: return "text/html";
         case ContentType::JPEG: return "image/jpeg";
         case ContentType::PNG: return "image/png";
         case ContentType::GIF: return "image/gif";
         case ContentType::XML: return "application/xml";
         case ContentType::JSON: return "application/json";
-        case ContentType::BINARY: return "application/octet-stream";
+        case ContentType::MP4: return "video/mpeg4";
         default: return "UNKNOWN";
     }
 }

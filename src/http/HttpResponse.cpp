@@ -36,6 +36,7 @@ const std::unordered_map<std::string_view, ContentType> Str2ContentType {
     { ".js", ContentType::JAVASCRIPT },
     { ".json", ContentType::JAVASCRIPT },
     { ".xml", ContentType::XML },
+    { ".mp4", ContentType::MP4 },
 };
 
 static std::string readFile(const std::filesystem::path& filePath) {
@@ -147,7 +148,14 @@ std::string HttpResponse::generateResponse() {
         } else {
             setProperty("Content-Type", to_string_view(mContentType));
         }
+    }
+    if (mContentLength != 0) {
         setProperty("Content-Length", std::to_string(mContentLength));
+    }
+    // Set content range
+    if (std::get<2>(mContentRange) != 0) {
+        setProperty("Content-Range", simpletcp::format("bytes {}-{}/{}"
+                    ,std::get<0>(mContentRange), std::get<1>(mContentRange), std::get<2>(mContentRange)));
     }
     // set keep-alive property.
     if (mIsKeepAlive) {

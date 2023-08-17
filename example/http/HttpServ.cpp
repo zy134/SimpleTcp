@@ -6,13 +6,18 @@
 #include "tcp/TcpConnection.h"
 #include "tcp/TcpServer.h"
 #include "http/HttpServer.h"
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string_view>
+#include <string>
 
 using namespace simpletcp;
 using namespace simpletcp::net;
 using namespace simpletcp::tcp;
 using namespace simpletcp::http;
+using namespace std::string_literals;
 
 inline static const SocketAddr serverAddr {
     .mIpAddr = "127.0.0.1",
@@ -37,13 +42,16 @@ void handleRequest(const HttpRequest& request, HttpResponse& response) {
     response.setVersion(Version::HTTP1_1);
     response.setStatus(StatusCode::OK);
     response.setDate();
+    response.setKeepAlive(true);
+    std::filesystem::path path = HTTP_RESOURCE_PATH;
     if (request.mUrl.empty()) {
-        response.setKeepAlive(true);
-        response.setContentByFilePath("index.html");
-    } else {
-        std::cout << "[HttpServ] client acquire for " << request.mUrl << std::endl;
-        response.setKeepAlive(false);
-        response.setContentByFilePath("img.jpg");
+        path.append("index.html");
+        std::cout << "[HttpServ] client acquire for " << path << std::endl;
+        response.setContentByFilePath(path);
+    } else if (request.mUrl == "img.jpg") {
+        path.append(request.mUrl);
+        std::cout << "[HttpServ] client acquire for " << path << std::endl;
+        response.setContentByFilePath(path);
     }
 }
 

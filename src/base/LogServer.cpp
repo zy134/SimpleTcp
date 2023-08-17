@@ -3,6 +3,7 @@
 #include "base/Error.h"
 #include "base/LogConfig.h"
 #include "base/StringHelper.h"
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -38,7 +39,7 @@ static std::string getLinuxProcessName() {
     if (procFd > 0) {
         auto len = ::read(procFd, procCmdline.data(), procCmdline.size());
         if (len > 0) {
-            procCmdline.resize(len);
+            procCmdline.resize(static_cast<size_t>(len));
             auto pos = procCmdline.find_last_of('/');
             if (pos != std::string_view::npos) {
                 pos += 1;

@@ -33,6 +33,8 @@ struct HttpRequest {
     Version                     mVersion;
     ContentType                 mContentType;
     size_t                      mContentLength;
+    std::vector<std::pair<size_t, size_t>>
+                                mRanges;
     bool                        mIsKeepAlive;
     std::vector<EncodingType>
                                 mAcceptEncodings;

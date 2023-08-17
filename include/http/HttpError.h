@@ -9,6 +9,7 @@ namespace simpletcp::http {
 enum class RequestErrorType {
     BadRequest,
     UnsupportMethod,
+    PartialPacket,
 };
 
 enum class ResponseErrorType {
@@ -23,6 +24,7 @@ inline constexpr std::string_view to_string_view(RequestErrorType type) {
     switch (type) {
         case RequestErrorType::BadRequest: return "BadRequest";
         case RequestErrorType::UnsupportMethod: return "UnsupportMethod";
+        case RequestErrorType::PartialPacket: return "PartialPacket";
     }
 }
 

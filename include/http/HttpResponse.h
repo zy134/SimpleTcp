@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_set>
 #include <vector>
 #include <unordered_map>
@@ -19,6 +20,8 @@ public:
         : mStatus(StatusCode::UNKNOWN)
         , mVersion(version)
         , mContentType(ContentType::UNKNOWN)
+        , mContentLength(0)
+        , mContentRange(0, 0, 0)
         , mIsKeepAlive(false)
         , mCharSet(CharSet::UNKNOWN)
         , mAvailEncodings(std::move(encodings))
@@ -33,14 +36,15 @@ public:
     void setCharSet(CharSet charSet) { mCharSet = charSet; }
     void setDate();
     void setContentByFilePath(const std::filesystem::path& path);
-    bool isKeepAlive() const noexcept { return mIsKeepAlive; }
-
-private:
     void setBody(std::string&& body) noexcept { mBody = std::move(body); }
-    void setProperty(std::string_view key, std::string_view value);
-    auto getProperty(std::string_view key) -> std::optional<std::string_view>;
+    void setBody(std::string_view body) noexcept { mBody = std::string { body.data(), body.size() }; }
     void setContentType(ContentType contentType) noexcept { mContentType = contentType; }
     void setContentLength(size_t contentLength) { mContentLength = contentLength; }
+    void setContentRange(auto contentRange) { mContentRange = contentRange; }
+    void setProperty(std::string_view key, std::string_view value);
+    auto getProperty(std::string_view key) -> std::optional<std::string_view>;
+
+private:
     EncodingType selectEncodeType(const std::filesystem::path& filePath) const;
     void dump() const;
     // Internal method. Invoked by HttpServer.
@@ -50,6 +54,8 @@ private:
     Version                     mVersion;
     ContentType                 mContentType;
     size_t                      mContentLength;
+    std::tuple<size_t, size_t, size_t>
+                                mContentRange;
     bool                        mIsKeepAlive;
     CharSet                     mCharSet;
     std::vector<EncodingType>

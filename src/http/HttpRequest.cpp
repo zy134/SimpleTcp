@@ -151,102 +151,66 @@ static bool parseHeaders(std::string_view headers, HttpRequest& request) {
 
 HttpRequest parseHttpRequest(std::string_view rawHttpPacket) {
     // parse state machine
-    enum class ParseState {
-        Request,
-        Header,
-        Body,
-        Done,
-        BadRequest,
-    };
-
     TRACE();
     HttpRequest request {};
     request.mIsKeepAlive = false;
-    ParseState state = ParseState::Request;
     std::string_view::size_type start_pos = 0, end_pos = 0;
 
-    // start parse request
-    while (true) {
-        switch (state) {
-            case ParseState::Request:
-            {
-                start_pos = 0;
-                end_pos = rawHttpPacket.find(CRLF);
-                if (end_pos == std::string_view::npos) {
-                    LOG_ERR("{}: parse request error.", __FUNCTION__);
-                    state = ParseState::BadRequest;
-                    break;
-                }
-                auto requestLine = std::string(rawHttpPacket.data(), end_pos - start_pos);
-                if (!parseStartLine(requestLine, request)) {
-                    LOG_ERR("{}: parse request error.", __FUNCTION__);
-                    state = ParseState::BadRequest;
-                    break;
-                }
-                state = ParseState::Header;
-                LOG_DEBUG("{}: parse request complete, then parse headers", __FUNCTION__);
-                break;
-            }
-            case ParseState::Header:
-            {
-                // We hope all input line like (key:value CRLF)
-                // Make sure start_pos not CRLF.
-                start_pos = end_pos + CRLF.size();
-                if (start_pos == std::string_view::npos) {
-                    LOG_DEBUG("{}: parse headers complete", __FUNCTION__);
-                    state = ParseState::Done;
-                    break;
-                }
-                // end_pos is the ended CRLF of headers.
-                end_pos = rawHttpPacket.find(BLANK_LINE, start_pos);
-                if (end_pos == std::string_view::npos) {
-                    LOG_ERR("{}: parse header error. BLANK_LINE not found.", __FUNCTION__);
-                    state = ParseState::BadRequest;
-                    break;
-                }
-                end_pos += CRLF.size(); // use CRLF as end indicator.
-                std::string headers { rawHttpPacket.begin() + start_pos, end_pos - start_pos };
-                if (parseHeaders(headers, request) == false) {
-                    LOG_ERR("{}: parse header error. ", __FUNCTION__);
-                    state = ParseState::BadRequest;
-                    break;
-                }
-                LOG_DEBUG("{}: parse headers complete, then parse body", __FUNCTION__);
-                state = ParseState::Body;
-                break;
-            }
-            case ParseState::Body:
-            {
-                // Skip blank line.
-                // Make sure start_pos not CRLF.
-                start_pos = end_pos + CRLF.size();
-                end_pos = rawHttpPacket.size();
-                if (request.mType == RequestType::GET) {
-                    LOG_DEBUG("{}: Accept Get request, ignore size check.", __FUNCTION__);
-                } else {
-                    auto content_length = end_pos - start_pos;
-                    if (content_length != request.mContentLength) {
-                        LOG_DEBUG("{}: Bad content length. Actually accepted size:{}, Expect size:{}"
-                                , __FUNCTION__, content_length, request.mContentLength);
-                        state = ParseState::BadRequest;
-                        break;
-                    }
-                }
-                request.mBody = std::string { rawHttpPacket.begin() + start_pos, end_pos - start_pos };
-                request.mRequestSize = rawHttpPacket.size();
-                state = ParseState::Done;
-                LOG_DEBUG("{}: parse body complete", __FUNCTION__);
-                break;
-            }
-            case ParseState::Done:
-                LOG_INFO("{}: parse request success", __FUNCTION__);
-                return request;
-            case ParseState::BadRequest:
-            default:
-                LOG_ERR("{}: BadRequest!", __FUNCTION__);
-                throw RequestError {"[HttpRequest] Parse error", RequestErrorType::BadRequest};
+    // 1. parse request line
+    start_pos = 0;
+    end_pos = rawHttpPacket.find(CRLF);
+    if (end_pos == std::string_view::npos) {
+        LOG_ERR("{}: parse request error.", __FUNCTION__);
+        throw RequestError {"[parseHttpRequest] parse failed.", RequestErrorType::BadRequest};
+    }
+    auto requestLine = std::string(rawHttpPacket.data(), end_pos - start_pos);
+    if (!parseStartLine(requestLine, request)) {
+        LOG_ERR("{}: parse request error.", __FUNCTION__);
+        throw RequestError {"[parseHttpRequest] parse request failed.", RequestErrorType::BadRequest};
+    }
+    // We hope all input line like (key:value CRLF)
+    // Make sure start_pos not CRLF.
+    start_pos = end_pos + CRLF.size();
+    if (start_pos == std::string_view::npos) {
+        LOG_DEBUG("{}: parse headers complete", __FUNCTION__);
+        return request;
+    }
+    
+    // 2. parse headers
+    // end_pos is the ended CRLF of headers.
+    end_pos = rawHttpPacket.find(BLANK_LINE, start_pos);
+    if (end_pos == std::string_view::npos) {
+        LOG_ERR("{}: parse header error. BLANK_LINE not found.", __FUNCTION__);
+        throw RequestError {"[parseHttpRequest] parse header failed. BLANK_LINE not found"
+            , RequestErrorType::BadRequest};
+    }
+    end_pos += CRLF.size(); // use CRLF as end indicator.
+    std::string headers { rawHttpPacket.begin() + start_pos, end_pos - start_pos };
+    if (parseHeaders(headers, request) == false) {
+        LOG_ERR("{}: parse header error. ", __FUNCTION__);
+        throw RequestError {"[parseHttpRequest] parse header failed.", RequestErrorType::BadRequest};
+    }
+    LOG_DEBUG("{}: parse headers complete, then parse body", __FUNCTION__);
+    
+    // 3. parse body
+    // Skip blank line.
+    // Make sure start_pos not CRLF.
+    start_pos = end_pos + CRLF.size();
+    end_pos = rawHttpPacket.size();
+    if (request.mType == RequestType::GET) {
+        LOG_DEBUG("{}: Accept Get request, ignore size check.", __FUNCTION__);
+    } else {
+        auto content_length = end_pos - start_pos;
+        if (content_length != request.mContentLength) {
+            LOG_DEBUG("{}: Bad content length. Actually accepted size:{}, Expect size:{}"
+                    , __FUNCTION__, content_length, request.mContentLength);
+            throw RequestError {"[parseHttpRequest] parse body failed.", RequestErrorType::PartialPacket};
         }
     }
+    request.mBody = std::string { rawHttpPacket.begin() + start_pos, end_pos - start_pos };
+    request.mRequestSize = rawHttpPacket.size();
+    LOG_DEBUG("{}: parse body complete", __FUNCTION__);
+    return request;
 }
 
 void dumpHttpRequest(const HttpRequest& request) {

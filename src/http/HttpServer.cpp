@@ -16,6 +16,7 @@ inline static constexpr std::string_view TAG = "HttpServer";
 
 namespace simpletcp::http {
 
+[[maybe_unused]]
 static constexpr std::string_view CRLF = "\r\n";
 
 HttpServer::HttpServer(HttpServerArgs args): mLoop(), mTcpServer({
@@ -48,9 +49,7 @@ void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
             HttpResponse response { request.mVersion, request.mAcceptEncodings };
             mRequestHandle(request, response);
             conn->sendString(response.generateResponse());
-            response.dump();
-            dumpHttpRequest(request);
-            if (!response.isKeepAlive()) {
+            if (!response.mIsKeepAlive) {
                 conn->shutdownConnection();
             }
         } else {
@@ -58,15 +57,19 @@ void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
             conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
         }
     } catch (const RequestError& e) {
-        LOG_ERR("{}: Http request error happen. {}", __FUNCTION__, e.what());
-        printBacktrace();
-        conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
+        if (e.getErrorType() == RequestErrorType::PartialPacket) {
+            LOG_INFO("{}: PartialPacket is received, expect for more data...", __FUNCTION__);
+        } else {
+            LOG_ERR("{}: Http request error happen. {}", __FUNCTION__, e.what());
+            printBacktrace();
+            conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
+        }
     } catch (const ResponseError& e) {
         LOG_ERR("{}: Http response error happen. {}", __FUNCTION__, e.what());
         printBacktrace();
         conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
     } catch (const std::exception& e) {
-        LOG_ERR("{}: Http error happen. {}", __FUNCTION__, e.what());
+        LOG_ERR("{}: Runtime error happen. {}", __FUNCTION__, e.what());
         throw;
     }
 }
