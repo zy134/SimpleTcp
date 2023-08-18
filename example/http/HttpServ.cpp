@@ -22,7 +22,7 @@ using namespace std::string_literals;
 inline static const SocketAddr serverAddr {
     .mIpAddr = "127.0.0.1",
     .mIpProtocol = IP_PROTOCOL::IPv4,
-    .mPort = 8848
+    .mPort = 8000
 };
 
 inline static constexpr auto MAX_LISTEN_QUEUE = 1000;

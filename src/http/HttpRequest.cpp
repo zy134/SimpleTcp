@@ -70,6 +70,7 @@ static bool parseStartLine(std::string_view requestLine, HttpRequest& request) {
     return true;
 }
 
+// TODO: Parse range arguments.
 static bool parseHeaders(std::string_view headers, HttpRequest& request) {
     // String translate helper functors
     constexpr auto to_encoding_type = [] (std::string_view type) {

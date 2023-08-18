@@ -5,3 +5,4 @@ logs/*
 .clangd
 .cache
 compile_commands.json
+example/http/video.mp4

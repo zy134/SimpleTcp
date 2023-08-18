@@ -1,6 +1,10 @@
 add_executable(HttpServ HttpServ.cpp)
 target_include_directories(HttpServ PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(HttpServ SimpleTcp_http)
+
+add_executable(HttpVideoServ ./HttpVideoServ.cpp)
+target_include_directories(HttpVideoServ PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(HttpVideoServ SimpleTcp_http)
 # execute_process(COMMAND cp ./index.html ${CMAKE_BINARY_DIR}/example/http
 #     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/example/http
 # )

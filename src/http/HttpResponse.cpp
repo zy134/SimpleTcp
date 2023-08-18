@@ -149,9 +149,8 @@ std::string HttpResponse::generateResponse() {
             setProperty("Content-Type", to_string_view(mContentType));
         }
     }
-    if (mContentLength != 0) {
-        setProperty("Content-Length", std::to_string(mContentLength));
-    }
+    setProperty("Content-Length", std::to_string(mContentLength));
+
     // Set content range
     if (std::get<2>(mContentRange) != 0) {
         setProperty("Content-Range", simpletcp::format("bytes {}-{}/{}"
