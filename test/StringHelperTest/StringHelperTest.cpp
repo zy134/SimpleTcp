@@ -17,6 +17,13 @@ int main() {
         std::cerr << "[StringHelperTest] strip failed!" << input << std::endl;
         return 1;
     }
+
+    input = "Test Test Test";
+    result = simpletcp::utils::split(input, ",");
+    if (result.size() != 1) {
+        std::cerr << "[StringHelperTest] strip failed!" << input << std::endl;
+        return 1;
+    }
     std::cerr << "[StringHelperTest] success" << input << std::endl;
     return 0;
 }

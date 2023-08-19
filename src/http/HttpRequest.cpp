@@ -4,10 +4,13 @@
 #include "http/HttpError.h"
 #include "http/HttpRequest.h"
 #include <exception>
+#include <string>
 #include <string_view>
 #include <iostream>
 #include <charconv>
 #include <system_error>
+#include <regex>
+#include <tuple>
 
 static constexpr std::string_view TAG = "HttpRequest";
 
@@ -131,7 +134,8 @@ static bool parseHeaders(std::string_view headers, HttpRequest& request) {
     // Set content info.
     if (request.mType != RequestType::GET) {
         if (auto iter = request.mHeaders.find("Content-Type"); iter != request.mHeaders.end()) {
-            auto content_type = to_content_type(iter->second);
+            const auto& value = iter->second;
+            auto content_type = to_content_type(value);
             if (content_type == ContentType::UNKNOWN) {
                 LOG_ERR("{}: Unknown content type!", __FUNCTION__);
                 return false;
@@ -144,6 +148,33 @@ static bool parseHeaders(std::string_view headers, HttpRequest& request) {
                     LOG_ERR("{}: Unknown content length argument {}!", __FUNCTION__, len->second.c_str());
                     return false;
                 }
+            }
+        }
+    }
+    // Set range info.
+    if (auto iter = request.mHeaders.find("Range"); iter != request.mHeaders.end()) {
+        const auto& value = iter->second;
+        [[unlikely]]
+        if (value.find("bytes") == std::string_view::npos) {
+            LOG_ERR("{}: unsupport range unit!", __FUNCTION__);
+            return false;
+        }
+        auto range_start = value.find('=');
+        [[unlikely]]
+        if (range_start == std::string_view::npos) {
+            LOG_ERR("{}: range format error!", __FUNCTION__);
+            return false;
+        }
+        std::string_view range_str { value.c_str() + range_start + 1, value.size() - range_start - 1};
+        auto ranges = utils::split(range_str, ",");
+        static std::regex range_partern { R"(\s*(\d*)-(\d*))" };
+        for (const auto& cur_range : ranges) {
+            std::cmatch matched;
+            if (std::regex_match(cur_range.c_str(), matched, range_partern)) {
+                std::pair<int64_t, int64_t> r;
+                r.first = matched.str(1).empty() ? 0 : std::stoll(matched.str(1));
+                r.second = matched.str(2).empty() ? -1 : std::stoll(matched.str(2));
+                request.mRanges.push_back(r);
             }
         }
     }

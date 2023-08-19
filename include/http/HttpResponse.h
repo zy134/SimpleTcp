@@ -1,7 +1,6 @@
 #pragma once
 #include "base/Utils.h"
 #include "http/HttpCommon.h"
-#include <cstddef>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -13,6 +12,13 @@
 
 namespace simpletcp::http {
 
+// Used for Content-Range property.
+struct RangeType {
+    int64_t start;
+    int64_t end;
+    int64_t total;
+};
+
 class HttpResponse final {
     friend class HttpServer;
 public:
@@ -21,7 +27,7 @@ public:
         , mVersion(version)
         , mContentType(ContentType::UNKNOWN)
         , mContentLength(0)
-        , mContentRange(0, 0, 0)
+        , mContentRange { .start = 0, .end = 0, .total = 0 }
         , mIsKeepAlive(false)
         , mCharSet(CharSet::UNKNOWN)
         , mAvailEncodings(std::move(encodings))
@@ -54,8 +60,7 @@ private:
     Version                     mVersion;
     ContentType                 mContentType;
     size_t                      mContentLength;
-    std::tuple<size_t, size_t, size_t>
-                                mContentRange;
+    RangeType                   mContentRange;
     bool                        mIsKeepAlive;
     CharSet                     mCharSet;
     std::vector<EncodingType>

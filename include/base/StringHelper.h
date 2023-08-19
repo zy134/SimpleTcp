@@ -10,6 +10,10 @@ inline std::vector<std::string> split(std::string_view str, std::string_view tok
     std::vector<std::string> result;
     auto start_pos = str.find_first_not_of(token);
     auto end_pos = str.find(token, start_pos);
+    [[unlikely]]
+    if (end_pos == std::string_view::npos) {
+        return { str.data() };
+    }
     while (end_pos != std::string_view::npos) {
         result.emplace_back(str.begin() + start_pos, str.begin() + end_pos);
         start_pos = str.find_first_not_of(token, end_pos);

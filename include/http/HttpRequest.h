@@ -1,6 +1,6 @@
 #pragma once
+
 #include "http/HttpCommon.h"
-#include <cstddef>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -33,7 +33,8 @@ struct HttpRequest {
     Version                     mVersion;
     ContentType                 mContentType;
     size_t                      mContentLength;
-    std::vector<std::pair<size_t, size_t>>
+
+    std::vector<std::pair<int64_t, int64_t>>
                                 mRanges;
     bool                        mIsKeepAlive;
     std::vector<EncodingType>

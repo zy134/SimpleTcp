@@ -152,9 +152,9 @@ std::string HttpResponse::generateResponse() {
     setProperty("Content-Length", std::to_string(mContentLength));
 
     // Set content range
-    if (std::get<2>(mContentRange) != 0) {
+    if (mContentRange.total != 0) {
         setProperty("Content-Range", simpletcp::format("bytes {}-{}/{}"
-                    ,std::get<0>(mContentRange), std::get<1>(mContentRange), std::get<2>(mContentRange)));
+                    ,mContentRange.start, mContentRange.end, mContentRange.total));
     }
     // set keep-alive property.
     if (mIsKeepAlive) {
