@@ -39,6 +39,8 @@ TcpBuffer::TcpBuffer() :mReadPos(0), mWritePos(0) {
  *
  *
  */
+// TODO:
+// Use readv to speed up this invocation.
 void TcpBuffer::readFromSocket(const SocketPtr &socket) {
     auto res = ::read(socket->getFd(), getWritePos(), writablebytes());
     if (res > 0 && static_cast<size_type>(res) == writablebytes()) {

@@ -3,6 +3,7 @@
 #include "http/HttpCommon.h"
 #include "http/HttpError.h"
 #include "http/HttpRequest.h"
+#include <cstddef>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -77,19 +78,19 @@ static bool parseStartLine(std::string_view requestLine, HttpRequest& request) {
 static bool parseHeaders(std::string_view headers, HttpRequest& request) {
     // String translate helper functors
     constexpr auto to_encoding_type = [] (std::string_view type) {
-        if (type == to_string_view(EncodingType::GZIP)) return EncodingType::GZIP;
-        if (type == to_string_view(EncodingType::BR)) return EncodingType::BR;
-        if (type == to_string_view(EncodingType::DEFLATE)) return EncodingType::DEFLATE;
+        if (type == to_cstr(EncodingType::GZIP)) return EncodingType::GZIP;
+        if (type == to_cstr(EncodingType::BR)) return EncodingType::BR;
+        if (type == to_cstr(EncodingType::DEFLATE)) return EncodingType::DEFLATE;
         return EncodingType::NO_ENCODING;
     };
 
     constexpr auto to_content_type = [] (std::string_view type) {
-        if (type == to_string_view(ContentType::HTML)) return ContentType::HTML;
-        if (type == to_string_view(ContentType::JSON)) return ContentType::JSON;
-        if (type == to_string_view(ContentType::JPEG)) return ContentType::JPEG;
-        if (type == to_string_view(ContentType::PNG)) return ContentType::PNG;
-        if (type == to_string_view(ContentType::GIF)) return ContentType::GIF;
-        if (type == to_string_view(ContentType::PLAIN)) return ContentType::PLAIN;
+        if (type == to_cstr(ContentType::HTML)) return ContentType::HTML;
+        if (type == to_cstr(ContentType::JSON)) return ContentType::JSON;
+        if (type == to_cstr(ContentType::JPEG)) return ContentType::JPEG;
+        if (type == to_cstr(ContentType::PNG)) return ContentType::PNG;
+        if (type == to_cstr(ContentType::GIF)) return ContentType::GIF;
+        if (type == to_cstr(ContentType::PLAIN)) return ContentType::PLAIN;
         return ContentType::UNKNOWN;
     };
     //
@@ -153,28 +154,24 @@ static bool parseHeaders(std::string_view headers, HttpRequest& request) {
     }
     // Set range info.
     if (auto iter = request.mHeaders.find("Range"); iter != request.mHeaders.end()) {
+        const static std::regex range_header_partern {R"(bytes=(.*))"};
         const auto& value = iter->second;
-        [[unlikely]]
-        if (value.find("bytes") == std::string_view::npos) {
-            LOG_ERR("{}: unsupport range unit!", __FUNCTION__);
-            return false;
-        }
-        auto range_start = value.find('=');
-        [[unlikely]]
-        if (range_start == std::string_view::npos) {
-            LOG_ERR("{}: range format error!", __FUNCTION__);
-            return false;
-        }
-        std::string_view range_str { value.c_str() + range_start + 1, value.size() - range_start - 1};
-        auto ranges = utils::split(range_str, ",");
-        static std::regex range_partern { R"(\s*(\d*)-(\d*))" };
-        for (const auto& cur_range : ranges) {
-            std::cmatch matched;
-            if (std::regex_match(cur_range.c_str(), matched, range_partern)) {
-                std::pair<int64_t, int64_t> r;
-                r.first = matched.str(1).empty() ? 0 : std::stoll(matched.str(1));
-                r.second = matched.str(2).empty() ? -1 : std::stoll(matched.str(2));
-                request.mRanges.push_back(r);
+        std::cmatch matched_header;
+        if (std::regex_match(value.c_str(), matched_header, range_header_partern)) {
+            std::string_view range_str {
+                value.c_str() + matched_header.position(1),
+                static_cast<size_t>(matched_header.length(1))
+            };
+            auto ranges = utils::split(range_str, ",");
+            const static std::regex range_partern { R"(\s*(\d*)-(\d*))" };
+            for (const auto& cur_range : ranges) {
+                std::cmatch matched;
+                if (std::regex_match(cur_range.c_str(), matched, range_partern)) {
+                    std::pair<int64_t, int64_t> r;
+                    r.first = matched.str(1).empty() ? 0 : std::stoll(matched.str(1));
+                    r.second = matched.str(2).empty() ? -1 : std::stoll(matched.str(2));
+                    request.mRanges.push_back(r);
+                }
             }
         }
     }
@@ -246,30 +243,30 @@ HttpRequest parseHttpRequest(std::string_view rawHttpPacket) {
 }
 
 void dumpHttpRequest(const HttpRequest& request) {
-    LOG_DEBUG("{}: {}", __FUNCTION__, to_string_view(request.mType));
-    LOG_DEBUG("{}: {}", __FUNCTION__, to_string_view(request.mVersion));
+    LOG_DEBUG("{}: {}", __FUNCTION__, to_cstr(request.mType));
+    LOG_DEBUG("{}: {}", __FUNCTION__, to_cstr(request.mVersion));
     LOG_DEBUG("{}: {}", __FUNCTION__, request.mUrl);
-    LOG_DEBUG("{}: {}", __FUNCTION__, to_string_view(request.mContentType));
+    LOG_DEBUG("{}: {}", __FUNCTION__, to_cstr(request.mContentType));
     LOG_DEBUG("{}: {}", __FUNCTION__, request.mContentLength);
     LOG_DEBUG("{}: {}", __FUNCTION__, request.mHost);
     LOG_DEBUG("{}: {}", __FUNCTION__, request.mBody);
     LOG_DEBUG("{}: keep-alive: {}", __FUNCTION__, request.mIsKeepAlive);
     LOG_DEBUG("{}: size: {}", __FUNCTION__, request.mRequestSize);
     for (auto&& encodeType : request.mAcceptEncodings) {
-        LOG_DEBUG("{}: accept encoding {}", __FUNCTION__, to_string_view(encodeType));
+        LOG_DEBUG("{}: accept encoding {}", __FUNCTION__, to_cstr(encodeType));
     }
     for (auto&& header : request.mHeaders) {
         LOG_DEBUG("{}: key:{}, value:{}", __FUNCTION__, header.first, header.second);
     }
 
-    std::cout << "[REQUEST] method: " << to_string_view(request.mType) << std::endl;
-    std::cout << "[REQUEST] version: " << to_string_view(request.mVersion) << std::endl;
+    std::cout << "[REQUEST] method: " << to_cstr(request.mType) << std::endl;
+    std::cout << "[REQUEST] version: " << to_cstr(request.mVersion) << std::endl;
     std::cout << "[REQUEST] url: " << request.mUrl << std::endl;
-    std::cout << "[REQUEST] content_type: " << to_string_view(request.mContentType) << std::endl;
+    std::cout << "[REQUEST] content_type: " << to_cstr(request.mContentType) << std::endl;
     std::cout << "[REQUEST] content_length: " << request.mContentLength << std::endl;
     std::cout << "[REQUEST]" << request.mHost << std::endl;
     for (auto&& encodeType : request.mAcceptEncodings) {
-        std::cout << "[REQUEST] accept encoding:" << to_string_view(encodeType) << std::endl;
+        std::cout << "[REQUEST] accept encoding:" << to_cstr(encodeType) << std::endl;
     }
     for (auto&& header : request.mHeaders) {
         std::cout << "[HEADERS] key:" << header.first << ", value:" << header.second << std::endl;

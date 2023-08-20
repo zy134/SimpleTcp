@@ -67,7 +67,11 @@ void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
     } catch (const ResponseError& e) {
         LOG_ERR("{}: Http response error happen. {}", __FUNCTION__, e.what());
         printBacktrace();
-        conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
+        if (e.getErrorType() == ResponseErrorType::FileNotFound) {
+            conn->sendString(HTTP_NOT_FOUND_RESPONSE);
+        } else {
+            conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
+        }
     } catch (const std::exception& e) {
         LOG_ERR("{}: Runtime error happen. {}", __FUNCTION__, e.what());
         throw;

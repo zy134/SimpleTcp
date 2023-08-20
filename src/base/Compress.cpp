@@ -101,4 +101,7 @@ std::string uncompress_gzip(std::string_view src_buffer, size_t dst_buffer_len) 
     return dst_buffer;
 }
 
+// TODO:
+// Add br.
+
 } // namespace simpletcp::utils

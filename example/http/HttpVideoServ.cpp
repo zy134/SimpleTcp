@@ -1,14 +1,6 @@
 #include "base/Log.h"
-#include "http/HttpCommon.h"
-#include "http/HttpError.h"
-#include "http/HttpRequest.h"
-#include "http/HttpResponse.h"
-#include "net/EventLoop.h"
-#include "tcp/TcpConnection.h"
-#include "tcp/TcpServer.h"
 #include "http/HttpServer.h"
-#include <cstddef>
-#include <cstdint>
+
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -22,14 +14,6 @@ using namespace simpletcp::net;
 using namespace simpletcp::tcp;
 using namespace simpletcp::http;
 using namespace std::string_literals;
-
-inline static const SocketAddr serverAddr {
-    .mIpAddr = "127.0.0.1",
-    .mIpProtocol = IP_PROTOCOL::IPv4,
-    .mPort = 8000
-};
-
-inline static constexpr auto MAX_LISTEN_QUEUE = 1000;
 
 inline static constexpr std::string_view TAG = "HttpVideoServ";
 
@@ -59,7 +43,7 @@ public:
             std::cout << "Disconnected" << std::endl;
         }
     }
-    
+
     void handleRequest(const HttpRequest& request, HttpResponse& response) {
         TRACE();
         response.setVersion(Version::HTTP1_1);
@@ -94,13 +78,12 @@ public:
             mFile.seekg(range.start);
             mFile.read(mChunkBuffer.data(), static_cast<std::streamsize>(range.end - range.start));
             std::string_view data { mChunkBuffer.data(), static_cast<size_t>(range.end - range.start) };
+
+            // Update http response
             if (range.end < static_cast<int64_t>(mFileSize)) {
                 response.setStatus(StatusCode::PARTIAL_CONTENT);
             } else {
                 response.setStatus(StatusCode::OK);
-            }
-            for (auto&& p : request.mRanges) {
-                std::cout << "[HttpVideoServ] range [" << p.first << ", " << p.second << "]" << std::endl;
             }
             response.setBody(data);
             response.setContentLength(static_cast<size_t>(range.end - range.start));
@@ -123,9 +106,15 @@ private:
                     mChunkBuffer;
 };
 
+inline static const SocketAddr serverAddr {
+    .mIpAddr = "127.0.0.1",
+    .mIpProtocol = IP_PROTOCOL::IPv4,
+    .mPort = 8000
+};
+
 HttpServerArgs initArgs {
     .serverAddr = serverAddr,
-    .maxListenQueue = MAX_LISTEN_QUEUE,
+    .maxListenQueue = 1000,
     .maxThreadNum = 0,
 };
 

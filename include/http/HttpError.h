@@ -18,6 +18,7 @@ enum class ResponseErrorType {
     BadContent,
     BadVersion,
     BadStatus,
+    FileNotFound,
 };
 
 inline constexpr std::string_view to_string_view(RequestErrorType type) {
@@ -35,6 +36,7 @@ inline constexpr std::string_view to_string_view(ResponseErrorType type) {
         case ResponseErrorType::BadContent: return "BadContent";
         case ResponseErrorType::BadVersion: return "BadVersion";
         case ResponseErrorType::BadStatus: return "BadStatus";
+        case ResponseErrorType::FileNotFound: return "FileNotFound";
     }
 }
 

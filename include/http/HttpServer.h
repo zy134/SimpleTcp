@@ -4,6 +4,7 @@
 #include "tcp/TcpServer.h"
 #include "http/HttpRequest.h"
 #include "http/HttpResponse.h"
+#include "http/HttpError.h"
 
 namespace simpletcp::http {
 

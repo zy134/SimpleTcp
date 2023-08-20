@@ -28,17 +28,6 @@ inline static constexpr std::string_view CRLF = "\r\n";
 
 namespace simpletcp::http {
 
-const std::unordered_map<std::string_view, ContentType> Str2ContentType {
-    { ".html", ContentType::HTML },
-    { ".jpg", ContentType::JPEG },
-    { ".png", ContentType::PNG },
-    { ".txt", ContentType::PLAIN },
-    { ".js", ContentType::JAVASCRIPT },
-    { ".json", ContentType::JAVASCRIPT },
-    { ".xml", ContentType::XML },
-    { ".mp4", ContentType::MP4 },
-};
-
 static std::string readFile(const std::filesystem::path& filePath) {
     auto file = std::fstream { filePath, std::ios::in };
     auto fileSize = filesystem::file_size(filePath);
@@ -81,16 +70,16 @@ void HttpResponse::setContentByFilePath(const std::filesystem::path& filePath) {
         }
         // Need compress?
         if (auto selectEncode = selectEncodeType(filePath); selectEncode == EncodingType::NO_ENCODING) {
-            LOG_INFO("{}: set content type :{}", __FUNCTION__, to_string_view(type));
+            LOG_INFO("{}: set content type :{}", __FUNCTION__, to_cstr(type));
             setBody(readFile(filePath));
         } else {
-            LOG_INFO("{}: set content type :{}", __FUNCTION__, to_string_view(type));
+            LOG_INFO("{}: set content type :{}", __FUNCTION__, to_cstr(type));
             if (selectEncode == EncodingType::GZIP) {
                 setBody(utils::compress_gzip(readFile(filePath)));
-                setProperty("Content-Encoding", to_string_view(EncodingType::GZIP));
+                setProperty("Content-Encoding", to_cstr(EncodingType::GZIP));
             } else {
                 setBody(utils::compress_deflate(readFile(filePath)));
-                setProperty("Content-Encoding", to_string_view(EncodingType::DEFLATE));
+                setProperty("Content-Encoding", to_cstr(EncodingType::DEFLATE));
             }
         }
         setContentType(type);
@@ -98,7 +87,7 @@ void HttpResponse::setContentByFilePath(const std::filesystem::path& filePath) {
     } catch (const std::exception& e) {
         LOG_ERR("{}: exception happen ! {}", __FUNCTION__, e.what());
         printBacktrace();
-        throw ResponseError {"[HttpResponse] content file not found!", ResponseErrorType::BadContent};
+        throw ResponseError {"[HttpResponse] content file not found!", ResponseErrorType::FileNotFound};
     }
 }
 
@@ -134,19 +123,19 @@ std::string HttpResponse::generateResponse() {
     
     std::string buffer;
     // Generate status line
-    auto statusLine = simpletcp::format("{} {}", to_string_view(mVersion), to_string_view(mStatus));
+    auto statusLine = simpletcp::format("{} {}", to_cstr(mVersion), to_cstr(mStatus));
     buffer.append(statusLine);
     buffer.append(CRLF);
-    LOG_INFO("{}: response status {}", __FUNCTION__, to_string_view(mStatus));
+    LOG_INFO("{}: response status {}", __FUNCTION__, to_cstr(mStatus));
 
     // Generate headers
     // Set content type and length
     if (mContentType != ContentType::UNKNOWN) {
         if (mCharSet != CharSet::UNKNOWN) {
             setProperty("Content-Type", simpletcp::format("{}; {}"
-                    , to_string_view(mContentType), to_string_view(mCharSet)));
+                    , to_cstr(mContentType), to_cstr(mCharSet)));
         } else {
-            setProperty("Content-Type", to_string_view(mContentType));
+            setProperty("Content-Type", to_cstr(mContentType));
         }
     }
     setProperty("Content-Length", std::to_string(mContentLength));
@@ -190,11 +179,11 @@ EncodingType HttpResponse::selectEncodeType(const std::filesystem::path& filePat
 }
 
 void HttpResponse::dump() const {
-    LOG_DEBUG("{}: http version: {}", __FUNCTION__, to_string_view(mVersion));
-    LOG_DEBUG("{}: status: {}", __FUNCTION__, to_string_view(mStatus));
+    LOG_DEBUG("{}: http version: {}", __FUNCTION__, to_cstr(mVersion));
+    LOG_DEBUG("{}: status: {}", __FUNCTION__, to_cstr(mStatus));
     LOG_DEBUG("{}: keep-alive: {}", __FUNCTION__, mIsKeepAlive);
-    LOG_DEBUG("{}: contentType: {}", __FUNCTION__, to_string_view(mContentType));
-    LOG_DEBUG("{}: charset: {}", __FUNCTION__, to_string_view(mCharSet));
+    LOG_DEBUG("{}: contentType: {}", __FUNCTION__, to_cstr(mContentType));
+    LOG_DEBUG("{}: charset: {}", __FUNCTION__, to_cstr(mCharSet));
     for (auto&& header : mHeaders) {
         LOG_DEBUG("{}: key:{}, value:{}", __FUNCTION__, header.first, header.second);
     }
@@ -204,11 +193,11 @@ void HttpResponse::dump() const {
         LOG_DEBUG("{}: {}", __FUNCTION__, mBody);
     }
     
-    std::cout << "[Response] http version: " << to_string_view(mVersion) << std::endl;
-    std::cout << "[Response] status: " << to_string_view(mStatus) << std::endl;
+    std::cout << "[Response] http version: " << to_cstr(mVersion) << std::endl;
+    std::cout << "[Response] status: " << to_cstr(mStatus) << std::endl;
     std::cout << "[Response] keep-alive: " << mIsKeepAlive << std::endl;
-    std::cout << "[Response] contentType: " << to_string_view(mContentType) << std::endl;
-    std::cout << "[Response] charset: " << to_string_view(mCharSet) << std::endl;
+    std::cout << "[Response] contentType: " << to_cstr(mContentType) << std::endl;
+    std::cout << "[Response] charset: " << to_cstr(mCharSet) << std::endl;
     for (auto&& header : mHeaders) {
         std::cout << "[Response] key:" << header.first << ", value: " << header.second << std::endl;
     }
