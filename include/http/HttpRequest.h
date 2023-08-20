@@ -17,13 +17,13 @@ struct HttpRequest {
         , mType(RequestType::UNKNOWN)
         , mVersion(Version::UNKNOWN)
         , mContentType(ContentType::UNKNOWN)
-        , mContentLength(0)
+        , mContentLength(-1)
         , mIsKeepAlive(false)
         , mAcceptEncodings()
         , mHeaders()
         , mBody()
         , mRawRequest()
-        , mRequestSize(0)
+        , mRequestSize(-1)
     {}
     // Parsed request.
     std::string                 mUrl;
@@ -32,7 +32,7 @@ struct HttpRequest {
     RequestType                 mType;
     Version                     mVersion;
     ContentType                 mContentType;
-    size_t                      mContentLength;
+    int64_t                     mContentLength;
 
     std::vector<std::pair<int64_t, int64_t>>
                                 mRanges;
@@ -45,7 +45,7 @@ struct HttpRequest {
     std::string                 mBody;
     // Raw request data.
     std::string                 mRawRequest;
-    size_t                      mRequestSize;
+    int64_t                     mRequestSize;
 };
 
 HttpRequest parseHttpRequest(std::string_view rawHttpPacket);

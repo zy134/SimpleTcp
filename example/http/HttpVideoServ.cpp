@@ -1,6 +1,8 @@
 #include "base/Log.h"
+#include "http/HttpCommon.h"
 #include "http/HttpServer.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -24,7 +26,7 @@ public:
         : mServ(args), mFile(path, std::ios::in) {
         mChunkSize = 1 << 20; // 1Mb
         mChunkBuffer.resize(mChunkSize);
-        mFileSize = std::filesystem::file_size(path);
+        mFileSize = static_cast<int64_t>(std::filesystem::file_size(path));
 
         mServ.setConnectionCallback([this] (const auto& conn) {
             this->onConnection(conn);
@@ -67,10 +69,19 @@ public:
 
             const auto& received_range = request.mRanges.front();
             range.start = received_range.first;
+            if (range.start >= mFileSize) {
+                std::cout << "[HttpVideoServ] bad start pos:" << range.start << std::endl;
+                response.setStatus(StatusCode::BAD_REQUEST);
+                return ;
+            }
             range.end = (received_range.second > 0) ?
-                    received_range.second : static_cast<int64_t>(mChunkSize) + range.start;
-            if (range.end > static_cast<int64_t>(mFileSize)) {
-                range.end = static_cast<int64_t>(mFileSize);
+                    received_range.second : mChunkSize + range.start;
+            if (range.end > mFileSize) {
+                range.end = mFileSize;
+            }
+            if (range.end - range.start > mChunkSize) {
+                std::cout << "[HttpVideoServ] client query too much data" << std::endl;
+                range.end = range.start + mChunkSize;
             }
             range.total = static_cast<int64_t>(mFileSize);
 
@@ -90,6 +101,12 @@ public:
             response.setContentType(ContentType::MP4);
             response.setContentRange(range);
             // dumpHttpRequest(request);
+        } else if (request.mUrl == "favicon.ico") {
+            path.append(request.mUrl);
+            std::cout << "[HttpVideoServ] client acquire for " << path << std::endl;
+            response.setContentByFilePath(path);
+        } else {
+            response.setStatus(StatusCode::NOT_FOUND);
         }
     }
 
@@ -100,8 +117,8 @@ public:
 private:
     HttpServer      mServ;
     std::fstream    mFile;
-    size_t          mFileSize;
-    size_t          mChunkSize;
+    int64_t         mFileSize;
+    int64_t         mChunkSize;
     std::vector<char>
                     mChunkBuffer;
 };

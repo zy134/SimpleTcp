@@ -3,12 +3,12 @@
 namespace simpletcp {
 
 enum class LogLevel {
-    Version = 0,
-    Debug,
-    Info,
+    Fatal = 0,
+    Error = 1,
     Warning,
-    Error,
-    Fatal,
+    Info,
+    Debug,
+    Version,
 };
 
 // Default log file path.

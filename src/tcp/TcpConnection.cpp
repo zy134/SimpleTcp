@@ -16,7 +16,9 @@
 #include <string_view>
 #include <system_error>
 
-static constexpr std::string_view TAG = "TcpConnection";
+// define TAG as a expression to print idenfication of connection
+const static std::string DEF_TAG = "TcpConnection";
+#define TAG (mIdentification.empty() ? DEF_TAG : mIdentification)
 
 constexpr auto TCP_HIGH_WATER_MARK = 65535;
 
@@ -27,7 +29,7 @@ using namespace simpletcp::net;
 namespace simpletcp::tcp {
 
 TcpConnectionPtr TcpConnection::createTcpConnection(net::SocketPtr&& socket, net::EventLoop* loop) {
-    LOG_INFO("{}", __FUNCTION__);
+    simpletcp::detail::log_info("TcpConnection", "{}", __FUNCTION__);
     return std::shared_ptr<TcpConnection>(new TcpConnection(std::move(socket), loop));
 }
 
@@ -38,12 +40,13 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
 
     mLocalAddr = mpSocket->getLocalAddr();
     mPeerAddr = mpSocket->getPeerAddr();
-
-    mpChannel = net::Channel::createChannel(mpSocket->getFd(), loop);
-    mpChannel->setChannelInfo(simpletcp::format("Conn [{}_{}_{}_{}]"
+    mIdentification = simpletcp::format("ConnId_{}_{}_{}_{}"
         , mpSocket->getLocalAddr().mIpAddr, mpSocket->getLocalAddr().mPort
         , mpSocket->getPeerAddr().mIpAddr, mpSocket->getPeerAddr().mPort
-    ));
+    );
+
+    mpChannel = net::Channel::createChannel(mpSocket->getFd(), loop);
+    mpChannel->setChannelInfo(mIdentification);
     mpChannel->setWriteCallback([this] () {
         handleWrite();
     });
@@ -92,7 +95,7 @@ void TcpConnection::handleRead() {
             mMessageCb(scopeGuard);
         }
     } catch (const NetworkException& e) {
-        if (mpSocket->getSocketError() == 0) {
+        if (e.getNetErr() == 0) {
             LOG_INFO("{} remote socket is shutdown.", __FUNCTION__);
             handleClose();
         } else {

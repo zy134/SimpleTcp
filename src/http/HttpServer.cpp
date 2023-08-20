@@ -41,41 +41,45 @@ void HttpServer::start() {
 void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
     TRACE();
     auto rawHttpPacket = conn->readStringAll();
+    HttpRequest request {};
+    HttpResponse response {};
+
     try {
-        auto request = parseHttpRequest(rawHttpPacket);
+        // Parse HTTP request.
+        request = parseHttpRequest(rawHttpPacket);
         request.mRawRequest = conn->extractString(request.mRequestSize);
+        // Handle the received request.
         if (mRequestHandle) {
             LOG_INFO("{}: send response.", __FUNCTION__);
-            HttpResponse response { request.mVersion, request.mAcceptEncodings };
+            response.setAcceptEncodings(request.mAcceptEncodings);
             mRequestHandle(request, response);
-            conn->sendString(response.generateResponse());
-            if (!response.mIsKeepAlive) {
-                conn->shutdownConnection();
-            }
         } else {
             LOG_INFO("{}: response not found", __FUNCTION__);
-            conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
+            response.setStatus(StatusCode::BAD_REQUEST);
+            response.setKeepAlive(false);
+        }
+        conn->sendString(response.generateResponse());
+        if (!response.mIsKeepAlive) {
+            conn->shutdownConnection();
         }
     } catch (const RequestError& e) {
         if (e.getErrorType() == RequestErrorType::PartialPacket) {
             LOG_INFO("{}: PartialPacket is received, expect for more data...", __FUNCTION__);
         } else {
-            LOG_ERR("{}: Http request error happen. {}", __FUNCTION__, e.what());
+            dumpHttpRequest(request);
+            LOG_ERR("{}: {}", __FUNCTION__, e.what());
             printBacktrace();
             conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
         }
     } catch (const ResponseError& e) {
-        LOG_ERR("{}: Http response error happen. {}", __FUNCTION__, e.what());
+        // The Server impl of HTTP must catch the exception of HTTP response.
+        LOG_ERR("{}: {}", __FUNCTION__, e.what());
+        dumpHttpRequest(request);
+        response.dump();
         printBacktrace();
-        if (e.getErrorType() == ResponseErrorType::FileNotFound) {
-            conn->sendString(HTTP_NOT_FOUND_RESPONSE);
-        } else {
-            conn->sendString(HTTP_BAD_REQUEST_RESPONSE);
-        }
-    } catch (const std::exception& e) {
-        LOG_ERR("{}: Runtime error happen. {}", __FUNCTION__, e.what());
         throw;
     }
+
 }
 
 } // namespace simpletcp::http

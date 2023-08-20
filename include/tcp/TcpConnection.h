@@ -195,6 +195,7 @@ private:
     net::ChannelPtr             mpChannel;
     net::SocketAddr             mLocalAddr;
     net::SocketAddr             mPeerAddr;
+    std::string                 mIdentification;
 
     TcpCloseCallback            mCloseCb;
     TcpConnectionCallback       mConnectionCb;

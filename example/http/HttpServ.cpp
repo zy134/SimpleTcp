@@ -1,4 +1,5 @@
 #include "base/Log.h"
+#include "http/HttpError.h"
 #include "http/HttpServer.h"
 
 #include <filesystem>
@@ -39,7 +40,12 @@ void handleRequest(const HttpRequest& request, HttpResponse& response) {
     } else {
         path.append(request.mUrl);
         std::cout << "[HttpServ] client acquire for " << path << std::endl;
-        response.setContentByFilePath(path);
+        try {
+            response.setContentByFilePath(path);
+        } catch (const ResponseError& e) {
+            response.setStatus(StatusCode::NOT_FOUND);
+            std::cout << "[HttpServ] error: " << e.what() << std::endl;
+        }
     }
 }
 

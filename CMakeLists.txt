@@ -50,7 +50,7 @@ if("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
     add_compile_definitions(
         DEFAULT_LOG_PATH="${PROJECT_SOURCE_DIR}/build/logs"
         DEBUG_BUILD=1
-        DEFAULT_LOG_LEVEL=1
+        DEFAULT_LOG_LEVEL=4 # debug level
     )
 else()
     message(STATUS "building for: release")
@@ -62,7 +62,7 @@ else()
     add_compile_definitions(
         DEFAULT_LOG_PATH="${PROJECT_SOURCE_DIR}/build/logs"
         DEBUG_BUILD=0
-        DEFAULT_LOG_LEVEL=2
+        DEFAULT_LOG_LEVEL=3 # info level
     )
 endif()
 

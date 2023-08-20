@@ -4,6 +4,7 @@
 #include "http/HttpError.h"
 #include "http/HttpRequest.h"
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -74,7 +75,6 @@ static bool parseStartLine(std::string_view requestLine, HttpRequest& request) {
     return true;
 }
 
-// TODO: Parse range arguments.
 static bool parseHeaders(std::string_view headers, HttpRequest& request) {
     // String translate helper functors
     constexpr auto to_encoding_type = [] (std::string_view type) {
@@ -230,14 +230,14 @@ HttpRequest parseHttpRequest(std::string_view rawHttpPacket) {
         LOG_DEBUG("{}: Accept Get request, ignore size check.", __FUNCTION__);
     } else {
         auto content_length = end_pos - start_pos;
-        if (content_length != request.mContentLength) {
+        if (content_length != static_cast<size_t>(request.mContentLength)) {
             LOG_DEBUG("{}: Bad content length. Actually accepted size:{}, Expect size:{}"
                     , __FUNCTION__, content_length, request.mContentLength);
             throw RequestError {"[parseHttpRequest] parse body failed.", RequestErrorType::PartialPacket};
         }
     }
     request.mBody = std::string { rawHttpPacket.begin() + start_pos, end_pos - start_pos };
-    request.mRequestSize = rawHttpPacket.size();
+    request.mRequestSize = static_cast<int64_t>(rawHttpPacket.size());
     LOG_DEBUG("{}: parse body complete", __FUNCTION__);
     return request;
 }

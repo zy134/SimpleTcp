@@ -6,10 +6,13 @@
 #include "http/HttpError.h"
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <ctime>
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -23,7 +26,7 @@ using namespace std::string_literals;
 
 inline static constexpr std::string_view TAG = "HttpResponse";
 
-[[maybe_unused]] 
+[[maybe_unused]]
 inline static constexpr std::string_view CRLF = "\r\n";
 
 namespace simpletcp::http {
@@ -84,10 +87,11 @@ void HttpResponse::setContentByFilePath(const std::filesystem::path& filePath) {
         }
         setContentType(type);
         setContentLength(mBody.size());
-    } catch (const std::exception& e) {
+    } catch (const std::runtime_error& e) {
         LOG_ERR("{}: exception happen ! {}", __FUNCTION__, e.what());
         printBacktrace();
-        throw ResponseError {"[HttpResponse] content file not found!", ResponseErrorType::FileNotFound};
+        auto errMsg = simpletcp::format("[HttpResponse] Error happen, {}", e.what());
+        throw ResponseError {errMsg, ResponseErrorType::FileNotFound};
     }
 }
 
@@ -100,7 +104,7 @@ void HttpResponse::setProperty(std::string_view key, std::string_view value) {
         mHeaders.insert({ key.data(), value.data() });
     }
 }
-    
+
 auto HttpResponse::getProperty(std::string_view key) -> std::optional<std::string_view> {
     std::optional<std::string_view> result {}; // enable NRVO
     if (mHeaders.count(key.data()) > 0) {
@@ -120,7 +124,11 @@ std::string HttpResponse::generateResponse() {
     if (mStatus == StatusCode::UNKNOWN) {
         throw ResponseError {"[HttpResponse] please set status code correctly!", ResponseErrorType::BadStatus};
     }
-    
+    [[unlikely]]
+    if (to_unsigned(mStatus) < 300u && mContentLength < 0) {
+        throw ResponseError {"[HttpResponse] please set the length of response!", ResponseErrorType::BadContent};
+    }
+
     std::string buffer;
     // Generate status line
     auto statusLine = simpletcp::format("{} {}", to_cstr(mVersion), to_cstr(mStatus));
@@ -142,6 +150,12 @@ std::string HttpResponse::generateResponse() {
 
     // Set content range
     if (mContentRange.total != 0) {
+        if (mContentRange.end - mContentRange.start != mContentLength) {
+            auto errMsg =
+                simpletcp::format("[HttpResponse] range end({}) - start({}) not equals to conetent length({})"
+                        , mContentRange.end, mContentRange.start, mContentLength);
+            throw ResponseError{ errMsg, ResponseErrorType::BadContent };
+        }
         setProperty("Content-Range", simpletcp::format("bytes {}-{}/{}"
                     ,mContentRange.start, mContentRange.end, mContentRange.total));
     }
