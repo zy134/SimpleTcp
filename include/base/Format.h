@@ -1,7 +1,6 @@
 #pragma once
 
 #include <type_traits>
-#include <ctime>
 #if defined(__cpp_lib_format)
 #include <format>
 #elif __has_include(<fmt/format.h>)

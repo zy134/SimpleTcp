@@ -34,6 +34,14 @@ enum class LogLevel {
 #define DEFAULT_LOG_LEVEL 1
 #endif
 
+// Check is DEFAULT_LOG_LEVEL a valid value.
+static_assert(DEFAULT_LOG_LEVEL <= static_cast<int>(simpletcp::LogLevel::Version)
+        , "[Log] DEFAULT_LOG_LEVEL must less equal than LogLevel::Version!");
+
+static_assert(DEFAULT_LOG_LEVEL >= static_cast<int>(simpletcp::LogLevel::Error)
+        , "[Log] DEFAULT_LOG_LEVEL must bigger than LogLevel::Error!");
+
+
 // TODO: equals to multiple of page size
 // constexpr unsigned long LOG_BUFFER_SIZE = 1ul << 22; // 4Mb
 constexpr unsigned long LOG_BUFFER_SIZE = 1ul << 18; // 256Kb

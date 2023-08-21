@@ -50,7 +50,7 @@ void TcpBuffer::readFromSocket(const SocketPtr &socket) {
     } else if (res > 0) {
         mWritePos += static_cast<size_type>(res);
     } else {
-        throw NetworkException("[TcpBuffer] write error.", errno);
+        throw NetworkException("[TcpBuffer] write error.", socket->getSocketError());
     }
     LOG_DEBUG("{}: read bytes: {}, readablebytes {}, writablebytes {}", __FUNCTION__
             , res, readablebytes(), writablebytes());
@@ -82,7 +82,7 @@ void TcpBuffer::writeToSocket(const SocketPtr &socket) {
         // Don't write again. Make write availble in next loop.
         updateReadPos(static_cast<size_type>(res));
     } else {
-        throw NetworkException("[TcpBuffer] write error.", errno);
+        throw NetworkException("[TcpBuffer] write error.", socket->getSocketError());
     }
 }
 

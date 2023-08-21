@@ -150,7 +150,6 @@ void TcpConnection::handleClose() {
 void TcpConnection::handleError() {
     TRACE();
     auto errCode = mpSocket->getSocketError();
-    assertTrue(errCode != 0, "[TcpConnection] What happen?");
     LOG_ERR("{}: code({}) message({})", __FUNCTION__, errCode, strerror(errCode));
     mpEventLoop->assertInLoopThread();
 }

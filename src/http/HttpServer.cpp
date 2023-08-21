@@ -14,6 +14,7 @@
 
 inline static constexpr std::string_view TAG = "HttpServer";
 
+// TODO: add SSL
 namespace simpletcp::http {
 
 [[maybe_unused]]
@@ -44,6 +45,8 @@ void HttpServer::onMessage(const tcp::TcpConnectionPtr& conn [[maybe_unused]]) {
     HttpRequest request {};
     HttpResponse response {};
 
+    // TODO:
+    // Need not found page?
     try {
         // Parse HTTP request.
         request = parseHttpRequest(rawHttpPacket);

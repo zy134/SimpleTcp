@@ -30,6 +30,8 @@ class TcpConnection;
 
 // poll Channels => invoke Channel callbacks => invoke Connection callbacks
 // All callbacks is run in loop thread.
+// TODO:
+// Use std::move_only_function or folly:Function instead of std::function
 using TcpConnectionPtr          = std::shared_ptr<TcpConnection>;
 using TcpConnectionCallback     = std::function<void (const TcpConnectionPtr&)>;
 using TcpMessageCallback        = std::function<void (const TcpConnectionPtr&)>;

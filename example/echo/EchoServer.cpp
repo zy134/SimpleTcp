@@ -15,7 +15,7 @@ using namespace std::chrono_literals;
 const SocketAddr serverAddr {
     .mIpAddr = "127.0.0.1",
     .mIpProtocol = IP_PROTOCOL::IPv4,
-    .mPort = 8848
+    .mPort = 8000
 };
 
 constexpr auto MAX_LISTEN_QUEUE = 100;

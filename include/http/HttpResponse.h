@@ -140,6 +140,7 @@ private:
     EncodingType selectEncodeType(const std::filesystem::path& filePath) const;
     void setAcceptEncodings(const auto& encodings) { mAvailEncodings = encodings; }
     void dump() const;
+    void validateResponse();
     std::string generateResponse();
 
     StatusCode                  mStatus;

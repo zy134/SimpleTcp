@@ -48,7 +48,7 @@ void HttpResponse::setDate() {
         return ;
     }
     std::array<char, 32> buffer;
-    auto len = strftime(buffer.data(), buffer.size(), "%c", &tm);
+    auto len = strftime(buffer.data(), buffer.size(), "%a, %d %b %Y %H:%M:%S GMT", &tm);
     if (len <= 0) {
         LOG_ERR("{}; invoke strftime failed!", __FUNCTION__);
         return ;
@@ -86,7 +86,7 @@ void HttpResponse::setContentByFilePath(const std::filesystem::path& filePath) {
             }
         }
         setContentType(type);
-        setContentLength(mBody.size());
+        setContentLength(static_cast<int64_t>(mBody.size()));
     } catch (const std::runtime_error& e) {
         LOG_ERR("{}: exception happen ! {}", __FUNCTION__, e.what());
         printBacktrace();
@@ -113,7 +113,7 @@ auto HttpResponse::getProperty(std::string_view key) -> std::optional<std::strin
     return result;
 }
 
-std::string HttpResponse::generateResponse() {
+void HttpResponse::validateResponse() {
     TRACE();
     // Check is this response valid.
     [[unlikely]]
@@ -128,6 +128,13 @@ std::string HttpResponse::generateResponse() {
     if (to_unsigned(mStatus) < 300u && mContentLength < 0) {
         throw ResponseError {"[HttpResponse] please set the length of response!", ResponseErrorType::BadContent};
     }
+
+}
+
+std::string HttpResponse::generateResponse() {
+    TRACE();
+    // Validate parameters of current response, throw exception if response is invalid.
+    validateResponse();
 
     std::string buffer;
     // Generate status line
@@ -206,7 +213,7 @@ void HttpResponse::dump() const {
             || mContentType == ContentType::JSON || mContentType == ContentType::XML) {
         LOG_DEBUG("{}: {}", __FUNCTION__, mBody);
     }
-    
+
     std::cout << "[Response] http version: " << to_cstr(mVersion) << std::endl;
     std::cout << "[Response] status: " << to_cstr(mStatus) << std::endl;
     std::cout << "[Response] keep-alive: " << mIsKeepAlive << std::endl;

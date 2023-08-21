@@ -4,13 +4,6 @@
 #include "base/Backtrace.h"
 #include <utility>
 
-// Check is DEFAULT_LOG_LEVEL a valid value.
-static_assert(DEFAULT_LOG_LEVEL <= static_cast<int>(simpletcp::LogLevel::Version)
-        , "[Log] DEFAULT_LOG_LEVEL must less equal than LogLevel::Version!");
-
-static_assert(DEFAULT_LOG_LEVEL >= static_cast<int>(simpletcp::LogLevel::Error)
-        , "[Log] DEFAULT_LOG_LEVEL must bigger than LogLevel::Error!");
-
 namespace simpletcp::detail {
 
 void printBacktrace();

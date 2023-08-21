@@ -9,6 +9,7 @@
 
 namespace simpletcp::http {
 
+// TODO: add cookie.
 struct HttpRequest {
     HttpRequest()
         : mUrl()

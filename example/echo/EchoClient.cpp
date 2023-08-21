@@ -17,7 +17,7 @@ using namespace std;
 const SocketAddr serverAddr {
     .mIpAddr = "127.0.0.1",
     .mIpProtocol = IP_PROTOCOL::IPv4,
-    .mPort = 8848
+    .mPort = 8000
 };
 
 TcpConnectionPtr clientConn;

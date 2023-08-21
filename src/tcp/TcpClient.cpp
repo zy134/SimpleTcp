@@ -236,7 +236,7 @@ void TcpClient::doForceDisconnected() {
 
 void TcpClient::retry() {
     mpEventLoop->assertInLoopThread();
-    LOG_INFO("{}: curretn delay: {}", __FUNCTION__, mConnRetryDelay.count());
+    LOG_INFO("{}: current delay: {}", __FUNCTION__, mConnRetryDelay.count());
     if (mConnRetryDelay < TCP_MAX_RETRY_TIMEOUT) {
         mpEventLoop->runAfter([this] {
             transStateInLoop(ClientState::Connecting);
