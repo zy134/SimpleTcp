@@ -1,4 +1,4 @@
-find_library(ssl REQUIRED)
+#find_library(ssl REQUIRED)
 aux_source_directory(. HTTP_SOURCES)
 add_library(SimpleTcp_http STATIC ${HTTP_SOURCES})
 target_include_directories(SimpleTcp_http PRIVATE ${PROJECT_SOURCE_DIR}/include)

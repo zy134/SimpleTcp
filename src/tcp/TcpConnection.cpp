@@ -1,12 +1,12 @@
-#include "base/Error.h"
-#include "base/Format.h"
-#include "base/Log.h"
-#include "base/Utils.h"
-#include "net/Channel.h"
-#include "net/EventLoop.h"
-#include "net/Socket.h"
-#include "tcp/TcpBuffer.h"
-#include "tcp/TcpConnection.h"
+#include <base/Error.h>
+#include <fmt/format.h>
+#include <base/Log.h>
+#include <base/Utils.h>
+#include <net/Channel.h>
+#include <net/EventLoop.h>
+#include <net/Socket.h>
+#include <tcp/TcpBuffer.h>
+#include <tcp/TcpConnection.h>
 #include <bits/types/struct_tm.h>
 #include <exception>
 #include <memory>
@@ -29,7 +29,6 @@ using namespace simpletcp::net;
 namespace simpletcp::tcp {
 
 TcpConnectionPtr TcpConnection::createTcpConnection(net::SocketPtr&& socket, net::EventLoop* loop) {
-    simpletcp::detail::log_info("TcpConnection", "{}", __FUNCTION__);
     return std::shared_ptr<TcpConnection>(new TcpConnection(std::move(socket), loop));
 }
 
@@ -40,7 +39,7 @@ TcpConnection::TcpConnection(SocketPtr&& socket, net::EventLoop* loop)
 
     mLocalAddr = mpSocket->getLocalAddr();
     mPeerAddr = mpSocket->getPeerAddr();
-    mIdentification = simpletcp::format("ConnId_{}_{}_{}_{}"
+    mIdentification = fmt::format("ConnId_{}_{}_{}_{}"
         , mpSocket->getLocalAddr().mIpAddr, mpSocket->getLocalAddr().mPort
         , mpSocket->getPeerAddr().mIpAddr, mpSocket->getPeerAddr().mPort
     );

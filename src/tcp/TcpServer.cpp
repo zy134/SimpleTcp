@@ -1,12 +1,12 @@
-#include "tcp/TcpServer.h"
-#include "base/Format.h"
-#include "net/Channel.h"
-#include "net/Socket.h"
-#include "tcp/TcpBuffer.h"
-#include "tcp/TcpConnection.h"
-#include "base/Utils.h"
-#include "base/Log.h"
-#include "base/Error.h"
+#include <tcp/TcpServer.h>
+#include <fmt/format.h>
+#include <net/Channel.h>
+#include <net/Socket.h>
+#include <tcp/TcpBuffer.h>
+#include <tcp/TcpConnection.h>
+#include <base/Utils.h>
+#include <base/Log.h>
+#include <base/Error.h>
 #include <exception>
 #include <string_view>
 
@@ -39,7 +39,7 @@ TcpServer::TcpServer(TcpServerArgs args)
     // create listen channel.
     mpListenChannel = Channel::createChannel(mpListenSocket->getFd(), args.loop);
 
-    auto channelInfo = simpletcp::format("Server listen in port {}", mpListenSocket->getPort());
+    auto channelInfo = fmt::format("Server listen in port {}", mpListenSocket->getPort());
     mpListenChannel->setChannelInfo(channelInfo);
     mpListenChannel->setReadCallback([&] {
         LOG_INFO("[ReadCallback] new client is arrived.");
@@ -61,7 +61,7 @@ TcpServer::TcpServer(TcpServerArgs args)
 
     // When new connection is established, create new idenfication for TcpClient.
     mIdentification = "";
-    mIdentification = simpletcp::format("{:016d}_{:05d}_{}_{}"
+    mIdentification = fmt::format("{:016d}_{:05d}_{}_{}"
         , std::chrono::steady_clock::now().time_since_epoch().count()
         , gettid()
         , mpListenSocket->getLocalAddr().mPort

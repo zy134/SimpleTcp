@@ -31,7 +31,7 @@ enum class LogLevel {
 #endif
 
 #ifndef DEFAULT_LOG_LEVEL
-#define DEFAULT_LOG_LEVEL 1
+#define DEFAULT_LOG_LEVEL 4
 #endif
 
 // Check is DEFAULT_LOG_LEVEL a valid value.

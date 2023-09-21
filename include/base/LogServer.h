@@ -1,7 +1,6 @@
 #pragma once
-#include "base/LogBuffer.h"
-#include "base/LogConfig.h"
-#include "base/Format.h"
+#include <base/LogBuffer.h>
+#include <base/LogConfig.h>
 #include <chrono>
 #include <fstream>
 #include <mutex>
@@ -36,19 +35,11 @@ public:
     // Thread-safety.
     void forceFlush() noexcept;
 
-    template <StringType T, Formatable...Args>
-    void format(LogLevel level, std::string_view tag, T&& fmt, Args&&...args) {
-        std::vector<char> buffer;
-        simpletcp::format_to(std::back_inserter(buffer), std::forward<T>(fmt), std::forward<Args>(args)...);
-        std::string_view formatted { buffer.data(), buffer.size() };
-        write(level, formatted, tag);
-    }
-
-private:
     // Client would call this funtion to format log line and write it to LogBuffer.
     // Thread-safety.
     void write(LogLevel level, std::string_view formatted, std::string_view tag);
 
+private:
     auto createLogFileStream() -> std::fstream;
 
     void doFlushAsync();

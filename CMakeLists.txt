@@ -9,8 +9,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # generate compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
-find_package(fmt REQUIRED)
-
 if("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
     message(STATUS "building for: debugging")
     # Set c++ version.
@@ -66,14 +64,18 @@ else()
     )
 endif()
 
+# build external library, like fmt, openssl...
+add_compile_definitions(FMT_HEADER_ONLY)
+add_subdirectory(${PROJECT_SOURCE_DIR}/lib external)
+
 # build static library.
-add_subdirectory(./src/base base)
-add_subdirectory(./src/net net)
-add_subdirectory(./src/tcp tcp)
-add_subdirectory(./src/http http)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/base base)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/net net)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/tcp tcp)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/http http)
 
 # build examples.
-add_subdirectory(./example example)
+add_subdirectory(${PROJECT_SOURCE_DIR}/example example)
 
 # build test.
-add_subdirectory(./test test)
+add_subdirectory(${PROJECT_SOURCE_DIR}/test test)

@@ -1,9 +1,8 @@
-#include "base/Format.h"
-#include "base/Log.h"
-#include "base/Compress.h"
-#include "http/HttpResponse.h"
-#include "http/HttpCommon.h"
-#include "http/HttpError.h"
+#include <base/Log.h>
+#include <base/Compress.h>
+#include <http/HttpResponse.h>
+#include <http/HttpCommon.h>
+#include <http/HttpError.h>
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -90,7 +89,7 @@ void HttpResponse::setContentByFilePath(const std::filesystem::path& filePath) {
     } catch (const std::runtime_error& e) {
         LOG_ERR("{}: exception happen ! {}", __FUNCTION__, e.what());
         printBacktrace();
-        auto errMsg = simpletcp::format("[HttpResponse] Error happen, {}", e.what());
+        auto errMsg = fmt::format("[HttpResponse] Error happen, {}", e.what());
         throw ResponseError {errMsg, ResponseErrorType::FileNotFound};
     }
 }
@@ -138,7 +137,7 @@ std::string HttpResponse::generateResponse() {
 
     std::string buffer;
     // Generate status line
-    auto statusLine = simpletcp::format("{} {}", to_cstr(mVersion), to_cstr(mStatus));
+    auto statusLine = fmt::format("{} {}", to_cstr(mVersion), to_cstr(mStatus));
     buffer.append(statusLine);
     buffer.append(CRLF);
     LOG_INFO("{}: response status {}", __FUNCTION__, to_cstr(mStatus));
@@ -147,7 +146,7 @@ std::string HttpResponse::generateResponse() {
     // Set content type and length
     if (mContentType != ContentType::UNKNOWN) {
         if (mCharSet != CharSet::UNKNOWN) {
-            setProperty("Content-Type", simpletcp::format("{}; {}"
+            setProperty("Content-Type", fmt::format("{}; {}"
                     , to_cstr(mContentType), to_cstr(mCharSet)));
         } else {
             setProperty("Content-Type", to_cstr(mContentType));
@@ -159,11 +158,11 @@ std::string HttpResponse::generateResponse() {
     if (mContentRange.total != 0) {
         if (mContentRange.end - mContentRange.start != mContentLength) {
             auto errMsg =
-                simpletcp::format("[HttpResponse] range end({}) - start({}) not equals to conetent length({})"
+                fmt::format("[HttpResponse] range end({}) - start({}) not equals to conetent length({})"
                         , mContentRange.end, mContentRange.start, mContentLength);
             throw ResponseError{ errMsg, ResponseErrorType::BadContent };
         }
-        setProperty("Content-Range", simpletcp::format("bytes {}-{}/{}"
+        setProperty("Content-Range", fmt::format("bytes {}-{}/{}"
                     ,mContentRange.start, mContentRange.end, mContentRange.total));
     }
     // set keep-alive property.

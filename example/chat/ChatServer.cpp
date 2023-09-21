@@ -1,7 +1,7 @@
-#include "base/Log.h"
-#include "net/EventLoop.h"
-#include "tcp/TcpConnection.h"
-#include "tcp/TcpServer.h"
+#include <base/Log.h>
+#include <net/EventLoop.h>
+#include <tcp/TcpConnection.h>
+#include <tcp/TcpServer.h>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -68,7 +68,7 @@ private:
                         LOG_INFO("{}: Message request, message: {}", __FUNCTION__, requestData);
                         for (const auto& client : mClients) {
                             const auto& clientName = mClients.at(conn);
-                            auto message = simpletcp::format("[{}] {}", clientName, requestData);
+                            auto message = fmt::format("[{}] {}", clientName, requestData);
                             client.first->sendString(message);
                         }
                         return;

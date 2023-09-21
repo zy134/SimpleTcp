@@ -322,7 +322,7 @@ void Socket::dumpSocketInfo() const noexcept {
                 , tcpInfo.tcpi_rcv_space, tcpInfo.tcpi_rcv_mss, tcpInfo.tcpi_rcv_ssthresh
                 , static_cast<int>(tcpInfo.tcpi_rcv_wscale));
     } else {
-        LOG_WARN("{}: failed to get tcp info!");
+        LOG_WARN("{}: failed to get tcp info!", __FUNCTION__);
     }
 }
 

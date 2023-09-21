@@ -1,8 +1,7 @@
-#include "base/LogServer.h"
-#include "base/Format.h"
-#include "base/Error.h"
-#include "base/LogConfig.h"
-#include "base/StringHelper.h"
+#include <base/LogServer.h>
+#include <base/Error.h>
+#include <base/LogConfig.h>
+#include <base/StringHelper.h>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -12,6 +11,7 @@
 #include <ctime>
 #include <string>
 #include <string_view>
+#include <fmt/format.h>
 
 extern "C" {
 #if defined (__linux__) || defined (__unix__) || defined (__ANDROID__)
@@ -71,7 +71,7 @@ LogServer::LogServer() : mCurrentDate(duration_cast<days>(system_clock::now().ti
 #else
     #error "Not support platform!"
 #endif
-    mProcessIdStr = simpletcp::format("{:5d}", mProcessId);
+    mProcessIdStr = fmt::format("{:5d}", mProcessId);
 
     // Create log file.
     mLogFileStream = createLogFileStream();
@@ -91,8 +91,8 @@ LogServer::~LogServer() {
 }
 
 void LogServer::forceDestroy() noexcept {
+    std::cerr << "[LogServer] forceDestroy" << std::endl;
     try {
-        // std::lock_guard lock { mMutex };
         // Notify flush thread to syncronize log buffer and close log file.
         mStopThread = true;
         mCond.notify_one();
@@ -102,18 +102,18 @@ void LogServer::forceDestroy() noexcept {
         }
     } catch (const std::exception& e) {
         // ignore exception
-        std::cerr << e.what() << std::endl;
+        std::cerr << "[LogServer] " << e.what() << std::endl;
     }
 }
 
 void LogServer::forceFlush() noexcept {
+    // std::cerr << "[LogServer] forceFlush" << std::endl;
     try {
-        // std::lock_guard lock { mMutex };
         mNeedFlushNow = true;
         mCond.notify_one();
     } catch (const std::exception& e) {
         // ignore exception.
-        std::cerr << e.what() << std::endl;
+        std::cerr << "[LogServer] " << e.what() << std::endl;
     }
 }
 
@@ -125,7 +125,7 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
 #else
     #error "Not support platform!"
 #endif
-    thread_local static std::string tCurThreadIdStr = simpletcp::format("{:5d}", tCurThreadId);
+    thread_local static std::string tCurThreadIdStr = fmt::format("{:5d}", tCurThreadId);
 
     constexpr auto log_level_to_string= [] (LogLevel l) {
         switch (l) {
@@ -157,7 +157,7 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
         if (::gmtime_r(&t, &date) == nullptr) {
             throw SystemException {"[LogServer] invoke gmtime_r failed."};
         }
-        tCurDateStr = simpletcp::format("{:04d}-{:02d}-{:02d}"
+        tCurDateStr = fmt::format("{:04d}-{:02d}-{:02d}"
                 , date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
     }
 
@@ -172,7 +172,7 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
     // Use libfmt to format log string.
     std::vector<char> logBuffer {};
     logBuffer.reserve(64);
-    simpletcp::format_to(std::back_inserter(logBuffer)
+    fmt::format_to(std::back_inserter(logBuffer)
             , "{} {:02d}:{:02d}:{:02d}.{:03d} {} {} [{}][{}] {}\n"
             , tCurDateStr
             , suffixHour.count(), suffixMin.count(), suffixSec.count(), suffix.count()
@@ -185,9 +185,9 @@ void LogServer::write(LogLevel level, std::string_view formatted, std::string_vi
     // Use C-style snprintf to format log string. Faster than fmt...
     std::array<char, LOG_MAX_LINE_SIZE> logBuffer;
     auto len = snprintf(logBuffer.data(), logBuffer.size()
-            , "%04d-%02d-%02d %02d:%02d:%02d.%03d %s %s [%s][%s] %s\n"
-            , timeStruct.tm_year + 1900, timeStruct.tm_mon + 1, timeStruct.tm_mday
-            , timeStruct.tm_hour, timeStruct.tm_min, timeStruct.tm_sec, static_cast<int>(millisSuffix)
+            , "%s %02ld:%02ld:%02ld.%03ld %s %s [%s][%s] %s\n"
+            , tCurDateStr.c_str()
+            , suffixHour.count(), suffixMin.count(), suffixSec.count(), suffix.count()
             , mProcessIdStr.c_str(), tCurThreadIdStr.c_str()
             , log_level_to_string(level), tag.data()
             , formatted.data()
@@ -300,6 +300,7 @@ std::fstream LogServer::createLogFileStream() {
         // We just focus on the case which create_directory() or permissions() throw a exception
         std::filesystem::create_directory(DEFAULT_LOG_PATH);
         std::filesystem::permissions(DEFAULT_LOG_PATH, std::filesystem::perms::all);
+        std::cerr << "[LogServer] Create log file success!" << std::endl;
     } catch (...) {
         std::cerr << "[LogServer] Failed to create log file!" << strerror(errno) << std::endl;
         throw SystemException("Can't create log filePath because:");
@@ -312,7 +313,7 @@ std::fstream LogServer::createLogFileStream() {
     // No need to check result. it would throw exception.
     ::gmtime_r(&t, &now);
 
-    auto filePath = simpletcp::format("{}/{}_{:d}_{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}.log"
+    auto filePath = fmt::format("{}/{}_{:d}_{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}.log"
             , DEFAULT_LOG_PATH
             , mProcessName.data()
             , mProcessId
